@@ -1,0 +1,80 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Default-deny catch-all untuk keamanan maksimum
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Pemeriksaan autentikasi pengguna atau perangkat
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // Validasi ID dokumen untuk mencegah ID poisoning
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    // Helper untuk data dokumen baru
+    function incoming() {
+      return request.resource.data;
+    }
+
+    // Validasi skema ketat data sensor ESP32
+    function isValidSensorReading(data) {
+      return data.keys().hasAll(['temperature', 'pressure_kpa', 'pressure_bar', 'pressure_psi', 'raw_pressure', 'timestamp'])
+        && data.keys().hasOnly(['temperature', 'pressure_kpa', 'pressure_bar', 'pressure_psi', 'raw_pressure', 'timestamp'])
+        && data.temperature is number && data.temperature >= -40.0 && data.temperature <= 125.0
+        && data.pressure_kpa is number && data.pressure_kpa >= 0.0 && data.pressure_kpa <= 1000.0
+        && data.pressure_bar is number && data.pressure_bar >= 0.0 && data.pressure_bar <= 10.0
+        && data.pressure_psi is number && data.pressure_psi >= 0.0 && data.pressure_psi <= 150.0
+        && data.raw_pressure is number
+        && (data.timestamp is timestamp || (data.timestamp is string && data.timestamp.size() <= 64));
+    }
+
+    // Helper untuk verifikasi email akun pemilik/admin
+    function isOwnerAdmin() {
+      return isSignedIn() && (
+        request.auth.token.email.lower() == 'irfanrizkiaditri@gmail.com' ||
+        request.auth.token.email.lower() == 'irfanrizkiaditri01@gmail.com'
+      );
+    }
+
+    // Koleksi sensor_readings: pembacaan dan penulisan hanya untuk yang terautentikasi
+    match /sensor_readings/{readingId} {
+      // Akses BACA: hanya untuk pengguna / operator yang terautentikasi (tidak terbuka untuk publik)
+      allow read: if isSignedIn();
+
+      // Akses TULIS: hanya untuk perangkat / operator yang terautentikasi dan data valid
+      allow create: if isSignedIn()
+        && isValidId(readingId)
+        && isValidSensorReading(incoming());
+
+      // Data log tidak boleh diubah atau dihapus untuk menjaga keaslian audit trail
+      allow update, delete: if false;
+    }
+
+    // Helper untuk verifikasi email pemilik atau akun perangkat ESP32
+    function isOwnerOrDevice() {
+      return isSignedIn() && (
+        isOwnerAdmin() ||
+        request.auth.token.email.lower() == 'esp32@biosense.itera.ac.id'
+      );
+    }
+
+    // Koleksi device_settings: Pengaturan perangkat jarak jauh (Remote Config)
+    match /device_settings/{configId} {
+      // Perangkat ESP32 dan pengguna terautentikasi dapat membaca konfigurasi
+      allow read: if isSignedIn();
+
+      // Akun pemilik atau perangkat ESP32 yang terautentikasi dapat memperbarui pengaturan
+      allow write: if isOwnerOrDevice() && isValidId(configId);
+    }
+
+    // Path uji koneksi
+    match /test/{docId} {
+      allow read: if true;
+    }
+  }
+}

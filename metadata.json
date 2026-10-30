@@ -1,0 +1,11 @@
+{
+  "name": "Remix BioSense ITERA — Monitoring Suhu \u0026 Tekanan Biogas IoT",
+  "description": "Aplikasi monitoring indikator suhu dan tekanan reaktor biogas berbasis IoT ESP32 untuk PKM Fisika ITERA dengan dukungan multi-koneksi (Bluetooth, Wi-Fi Lokal, Cloud/Hotspot, dan USB Serial).",
+  "requestFramePermissions": [
+    "bluetooth",
+    "serial"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
