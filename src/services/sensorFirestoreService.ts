@@ -4,6 +4,7 @@ import {
   orderBy,
   limit,
   onSnapshot,
+  getDocs,
   addDoc,
   doc,
   setDoc,
@@ -170,6 +171,61 @@ export function subscribeLatestSensorReadings(
     const err = handleFirestoreError(error, OperationType.LIST, COLLECTION_NAME);
     if (onError) onError(err);
     return () => {};
+  }
+}
+
+/**
+ * Mengambil data sensor terbaru dari Firestore sekali jalan untuk tombol refresh manual
+ */
+export async function fetchLatestSensorReadingsOnce(): Promise<SensorReading[]> {
+  try {
+    const q = query(
+      collection(db, COLLECTION_NAME),
+      orderBy('timestamp', 'desc'),
+      limit(60)
+    );
+    const snapshot = await getDocs(q);
+    const readingsWithTime: { reading: SensorReading; epochMs: number }[] = [];
+
+    snapshot.forEach((docSnap) => {
+      const data = docSnap.data() as FirestoreSensorReadingDoc;
+      const temp = typeof data.temperature === 'number' ? data.temperature : 0;
+      const presKpa = typeof data.pressure_kpa === 'number' ? data.pressure_kpa : 0;
+      const presBar =
+        typeof data.pressure_bar === 'number'
+          ? data.pressure_bar
+          : Number((presKpa / 100).toFixed(4));
+      const presPsi =
+        typeof data.pressure_psi === 'number'
+          ? data.pressure_psi
+          : Number((presKpa * 0.145038).toFixed(3));
+      const rawPres =
+        typeof data.raw_pressure === 'number'
+          ? data.raw_pressure
+          : 0;
+
+      const epochMs = getFirestoreMillis(data.timestamp);
+
+      readingsWithTime.push({
+        epochMs,
+        reading: {
+          id: docSnap.id,
+          timestamp: formatFirestoreTimestamp(data.timestamp),
+          temperatureC: Number(temp.toFixed(1)),
+          pressureKpa: Number(presKpa.toFixed(1)),
+          pressureBar: presBar,
+          pressurePsi: presPsi,
+          rawPressure: rawPres,
+          source: 'cloud_hotspot',
+          epochMs
+        }
+      });
+    });
+
+    readingsWithTime.sort((a, b) => b.epochMs - a.epochMs);
+    return readingsWithTime.map((item) => item.reading);
+  } catch (error) {
+    throw handleFirestoreError(error, OperationType.LIST, COLLECTION_NAME);
   }
 }
 

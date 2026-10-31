@@ -1,0 +1,32 @@
+{
+  "id": "/",
+  "name": "bIoTeragas — Monitoring Biogas Reaktor",
+  "short_name": "bIoTeragas",
+  "description": "Aplikasi monitoring indikator suhu dan tekanan reaktor biogas berbasis IoT ESP32 secara realtime.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "theme_color": "#090B10",
+  "background_color": "#090B10",
+  "icons": [
+    {
+      "src": "/pwa-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/pwa-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/pwa-maskable-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

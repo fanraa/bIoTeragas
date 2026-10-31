@@ -2,7 +2,8 @@ import React, { useState, useRef, useEffect } from 'react';
 import {
   Download,
   Trash2,
-  MoreVertical
+  MoreVertical,
+  RefreshCw
 } from 'lucide-react';
 import { User } from 'firebase/auth';
 import {
@@ -22,6 +23,7 @@ interface DashboardViewProps {
   activeMethod: ConnectionMethod;
   isConnected: boolean;
   isEspOnline?: boolean;
+  isSyncing?: boolean;
   connectionStatusText: string;
   simAutoWalk: boolean;
   currentUser?: User | null;
@@ -29,6 +31,7 @@ interface DashboardViewProps {
   onManualSimChange: (tempC: number, pressureKpa: number) => void;
   onClearHistory: () => void;
   onNavigateToConnect: () => void;
+  onRefresh?: () => void;
 }
 
 const METHOD_SHORT: Record<ConnectionMethod, string> = {
@@ -46,13 +49,15 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   activeMethod,
   isConnected,
   isEspOnline = false,
+  isSyncing = false,
   connectionStatusText,
   simAutoWalk,
   currentUser,
   onToggleSimAutoWalk,
   onManualSimChange,
   onClearHistory,
-  onNavigateToConnect
+  onNavigateToConnect,
+  onRefresh
 }) => {
   const [pressureUnit, setPressureUnit] = useState<PressureUnit>('kPa');
   const [menuOpen, setMenuOpen] = useState(false);
@@ -235,49 +240,75 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     document.body.removeChild(link);
   };
 
+  // Jika dalam mode Cloud dan ESP32 terputus, jangan tampilkan data lama melainkan '--.-'
+  const isDeviceOnline = activeMethod === 'cloud_hotspot' ? Boolean(isEspOnline) : (isConnected && hasData);
+  const showSensorValues = hasData && isDeviceOnline;
+
   return (
     <div className="space-y-3 sm:space-y-4 w-full">
       {/* Bar Status Koneksi Online & Status ESP32 Simpel (Responsif HP & Laptop) */}
       <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 px-1 text-[11px] text-zinc-400">
         <div className="flex items-center gap-2.5 sm:gap-3 shrink-0">
-          {/* Status Cloud */}
-          <div className="flex items-center gap-1.5 shrink-0">
-            <span
-              className={`w-2 h-2 rounded-[2.5px] shrink-0 ${
-                isConnected ? 'bg-emerald-400' : 'bg-zinc-500'
-              }`}
-            />
-            <span className="text-zinc-200 font-medium whitespace-nowrap flex items-center gap-1.5">
-              {activeMethod === 'cloud_hotspot' ? (
-                <>
-                  <span className="hidden sm:inline">Terhubung Ke </span>
-                  <span>Cloud</span>
-                </>
-              ) : (
-                connectionStatusText
-              )}
-            </span>
-          </div>
-
-          {/* Status ESP32 (Mode Cloud) */}
-          {activeMethod === 'cloud_hotspot' && (
+          {isSyncing ? (
             <div className="flex items-center gap-1.5 shrink-0">
-              <span
-                className={`w-2 h-2 rounded-[2.5px] shrink-0 ${
-                  isEspOnline ? 'bg-emerald-400' : 'bg-rose-500'
-                }`}
-              />
-              <span className={`font-medium whitespace-nowrap ${isEspOnline ? 'text-zinc-200' : 'text-zinc-400'}`}>
-                ESP32 {isEspOnline ? 'Online' : 'Offline'}
+              <span className="w-2 h-2 rounded-[2.5px] bg-white animate-pulse shrink-0" />
+              <span className="text-zinc-300 font-medium whitespace-nowrap">
+                Menyinkronkan data...
               </span>
             </div>
+          ) : (
+            <>
+              {/* Status Cloud */}
+              <div className="flex items-center gap-1.5 shrink-0">
+                <span
+                  className={`w-2 h-2 rounded-[2.5px] shrink-0 ${
+                    isConnected ? 'bg-emerald-400' : 'bg-zinc-500'
+                  }`}
+                />
+                <span className="text-zinc-200 font-medium whitespace-nowrap flex items-center gap-1.5">
+                  {activeMethod === 'cloud_hotspot' ? (
+                    <>
+                      <span className="hidden sm:inline">Terhubung Ke </span>
+                      <span>Cloud</span>
+                    </>
+                  ) : (
+                    connectionStatusText
+                  )}
+                </span>
+              </div>
+
+              {/* Status ESP32 (Mode Cloud) */}
+              {activeMethod === 'cloud_hotspot' && (
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <span
+                    className={`w-2 h-2 rounded-[2.5px] shrink-0 ${
+                      isEspOnline ? 'bg-emerald-400' : 'bg-rose-500'
+                    }`}
+                  />
+                  <span className={`font-medium whitespace-nowrap ${isEspOnline ? 'text-zinc-200' : 'text-zinc-400'}`}>
+                    ESP32 {isEspOnline ? 'Online' : 'Terputus'}
+                  </span>
+                </div>
+              )}
+
+              {/* Tombol Refresh Murni Ikon (Tanpa Box) tepat di samping status ESP32 Online */}
+              <button
+                type="button"
+                onClick={onRefresh}
+                title="Segarkan data terbaru"
+                aria-label="Segarkan data"
+                className="text-zinc-400 hover:text-white transition-colors cursor-pointer p-0 shrink-0 inline-flex items-center justify-center active:scale-90"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin text-white' : ''}`} />
+              </button>
+            </>
           )}
         </div>
 
-        {/* Pojok Kanan: Waktu Pembaruan (Adaptif di HP agar tidak bertabrakan) */}
-        {hasData && currentReading && currentReading.timestamp && currentReading.timestamp !== '--:--:--' && (
+        {/* Pojok Kanan: Waktu Pembaruan (Hanya tampil saat online dan data aktif) */}
+        {showSensorValues && currentReading && currentReading.timestamp && currentReading.timestamp !== '--:--:--' && (
           <span className="font-mono text-[10px] text-zinc-400 shrink-0 ml-auto whitespace-nowrap">
-            <span className="hidden sm:inline">{isEspOnline ? 'Pembaruan: ' : 'Terakhir: '}</span>
+            <span className="hidden sm:inline">Live: </span>
             {currentReading.timestamp} WIB
           </span>
         )}
@@ -300,8 +331,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             {/* Garis kilau kaca atas */}
             <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/25 to-transparent pointer-events-none rounded-t-md" />
 
-            {/* Pojok Kiri Atas: Icon */}
-            <div className="flex items-center">
+            {/* Pojok Atas: Icon */}
+            <div className="flex items-center justify-between">
               <img
                 src="https://cdn-icons-png.flaticon.com/128/11325/11325002.png"
                 alt="Suhu"
@@ -312,21 +343,25 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
             {/* Tengah: Angka + Satuan */}
             <div className="my-1.5 sm:my-3 flex items-baseline justify-center text-center">
-              <span className="text-2xl sm:text-4xl md:text-5xl font-mono font-medium tracking-tight text-white tabular-nums">
-                {hasData ? temp.toFixed(1) : '-'}
+              <span className={`text-2xl sm:text-4xl md:text-5xl font-mono font-medium tracking-tight tabular-nums ${
+                showSensorValues ? 'text-white' : 'text-zinc-500'
+              }`}>
+                {showSensorValues ? temp.toFixed(1) : '--.-'}
               </span>
-              {hasData && (
-                <span className="text-xs sm:text-sm font-mono text-zinc-400 ml-1">
-                  °C
-                </span>
-              )}
+              <span className="text-xs sm:text-sm font-mono text-zinc-500 ml-1">
+                °C
+              </span>
             </div>
 
             {/* Bawah: Status di kiri & Rentang Optimal di kanan */}
             <div className="flex items-center justify-between text-[11px] w-full pt-1">
-              <span className={`flex items-center gap-1 font-medium ${tempStatus.tone}`}>
-                {tempStatus.icon}
-                <span>{tempStatus.label}</span>
+              <span className={`flex items-center gap-1.5 font-medium ${showSensorValues ? tempStatus.tone : 'text-zinc-500'}`}>
+                {showSensorValues ? (
+                  tempStatus.icon
+                ) : (
+                  <span className="w-2 h-2 rounded-[2.5px] bg-zinc-500 shrink-0 inline-block" />
+                )}
+                <span>{showSensorValues ? tempStatus.label : 'Terputus'}</span>
               </span>
               <span className="text-zinc-500 font-mono text-[10px]">
                 {thresholds.tempMinOptimal}–{thresholds.tempMaxOptimal}°C
@@ -360,8 +395,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             {/* Garis kilau kaca atas */}
             <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/25 to-transparent pointer-events-none rounded-t-md" />
 
-            {/* Pojok Kiri Atas: Icon */}
-            <div className="flex items-center">
+            {/* Pojok Atas: Icon */}
+            <div className="flex items-center justify-between">
               <img
                 src="https://cdn-icons-png.flaticon.com/128/752/752154.png"
                 alt="Tekanan"
@@ -372,24 +407,28 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
             {/* Tengah: Angka + Satuan */}
             <div className="my-1.5 sm:my-3 flex items-baseline justify-center text-center">
-              <span className="text-2xl sm:text-4xl md:text-5xl font-mono font-medium tracking-tight text-white tabular-nums">
-                {hasData ? formatPressure(presKpa, pressureUnit) : '-'}
+              <span className={`text-2xl sm:text-4xl md:text-5xl font-mono font-medium tracking-tight tabular-nums ${
+                showSensorValues ? 'text-white' : 'text-zinc-500'
+              }`}>
+                {showSensorValues ? formatPressure(presKpa, pressureUnit) : '--.-'}
               </span>
-              {hasData && (
-                <span className="text-xs sm:text-sm font-mono text-zinc-400 ml-1">
-                  {pressureUnit}
-                </span>
-              )}
+              <span className="text-xs sm:text-sm font-mono text-zinc-500 ml-1">
+                {pressureUnit}
+              </span>
             </div>
 
             {/* Bawah: Status di kiri & Tekanan Relatif ΔP di kanan */}
             <div className="flex items-center justify-between text-[11px] w-full pt-1">
-              <span className={`flex items-center gap-1 font-medium ${presStatus.tone}`}>
-                {presStatus.icon}
-                <span>{presStatus.label}</span>
+              <span className={`flex items-center gap-1.5 font-medium ${showSensorValues ? presStatus.tone : 'text-zinc-500'}`}>
+                {showSensorValues ? (
+                  presStatus.icon
+                ) : (
+                  <span className="w-2 h-2 rounded-[2.5px] bg-zinc-500 shrink-0 inline-block" />
+                )}
+                <span>{showSensorValues ? presStatus.label : 'Terputus'}</span>
               </span>
               <span className="text-zinc-500 font-mono text-[10px]">
-                {hasData ? `ΔP +${formatPressure(gaugeKpa, pressureUnit)}` : 'ΔP -'}
+                {showSensorValues ? `ΔP +${formatPressure(gaugeKpa, pressureUnit)}` : 'ΔP -'}
               </span>
             </div>
           </section>

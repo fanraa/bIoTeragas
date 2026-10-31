@@ -26,6 +26,7 @@ import {
 import { auth, loginWithGoogle, logoutFirebase, testConnection } from './services/firebase';
 import {
   subscribeLatestSensorReadings,
+  fetchLatestSensorReadingsOnce,
   pushSensorReadingToFirestore,
   subscribeThresholdSettings,
   updateThresholdSettings
@@ -60,6 +61,11 @@ const DEFAULT_SETTINGS: ConnectionSettings = {
   bleCharUuid: 'beb5483e-36e1-4688-b7f5-ea07361b26a8',
   serialBaudRate: 115200
 };
+
+// Batas toleransi heartbeat ESP32 (30 detik).
+// Mengakomodasi interval pengiriman (2s, 5s, 10s) ditambah latensi HTTPS TLS (1-3s)
+// dan siklus pengecekan konfigurasi remote ESP32 setiap 30 detik tanpa memicu status 'Terputus' palsu.
+const ESP32_OFFLINE_TIMEOUT_MS = 30000;
 
 function formatTimeNow(): string {
   return new Date().toLocaleTimeString('id-ID', {
@@ -234,6 +240,7 @@ export default function App() {
   );
   const [simAutoWalk, setSimAutoWalk] = useState<boolean>(true);
   const [isEspOnline, setIsEspOnline] = useState<boolean>(false);
+  const [isInitialSyncing, setIsInitialSyncing] = useState<boolean>(true);
   const lastPacketReceivedAtRef = useRef<number>(0);
 
   // Audio Alarm Suara Peringatan Kritis
@@ -469,27 +476,40 @@ export default function App() {
     setStatusMessage('Sambungan ke perangkat ESP32 telah diputuskan.');
   }, []);
 
-  // 1. Integrasi Listener Realtime Firebase Cloud Firestore (Terbuka untuk Tamu & Pengguna)
+  // 1. Integrasi Listener Realtime Firebase Cloud Firestore
   useEffect(() => {
-    if (settings.activeMethod !== 'cloud_hotspot') return;
+    if (settings.activeMethod !== 'cloud_hotspot') {
+      setIsInitialSyncing(false);
+      return;
+    }
 
-    const currentRole = currentUser
-      ? isUserOwner(currentUser)
-        ? 'Admin PKM'
-        : 'Anggota'
-      : 'Tamu (Publik)';
-
-    setStatusMessage(`Terhubung ke Firebase Cloud (${currentRole})...`);
+    setIsInitialSyncing(true);
+    setStatusMessage('Menyinkronkan data sensor ke Cloud...');
     setIsConnected(true);
 
     const unsubscribe = subscribeLatestSensorReadings(
       (readings) => {
+        setIsInitialSyncing(false);
         if (readings.length > 0) {
-          setCurrentReading(readings[0]);
+          const latest = readings[0];
+          setCurrentReading(latest);
           setHistory(readings);
           setIsConnected(true);
-          setStatusMessage(`Terhubung ke Firebase Cloud (${currentRole})`);
-          lastPacketReceivedAtRef.current = Date.now();
+
+          const now = Date.now();
+          const docAgeMs = latest.epochMs ? Math.abs(now - latest.epochMs) : Infinity;
+          // Anggap ESP32 aktif jika dokumen terbaru terkirim dalam rentang toleransi (30 detik)
+          const isFresh = docAgeMs < ESP32_OFFLINE_TIMEOUT_MS;
+
+          if (isFresh) {
+            lastPacketReceivedAtRef.current = now;
+            setIsEspOnline(true);
+            setStatusMessage('Terhubung ke Firebase Cloud • ESP32 Aktif');
+          } else {
+            lastPacketReceivedAtRef.current = 0;
+            setIsEspOnline(false);
+            setStatusMessage('Terhubung ke Firebase Cloud • Menampilkan data rekaman terakhir');
+          }
         } else {
           setCurrentReading({
             id: 'awaiting-esp32',
@@ -500,10 +520,12 @@ export default function App() {
           });
           setHistory([]);
           setIsConnected(true);
-          setStatusMessage(`Terhubung ke Firebase Cloud (${currentRole}) • Menunggu data ESP32...`);
+          setIsEspOnline(false);
+          setStatusMessage('Terhubung ke Firebase Cloud • Menunggu data ESP32...');
         }
       },
       (err) => {
+        setIsInitialSyncing(false);
         console.error('Error membaca data Firestore:', err);
         setIsConnected(false);
         setIsEspOnline(false);
@@ -514,9 +536,9 @@ export default function App() {
     return () => {
       unsubscribe();
     };
-  }, [settings.activeMethod, currentUser]);
+  }, [settings.activeMethod]);
 
-  // Pantau heartbeat ESP32 (mengecek apakah data masih mengalir aktif dalam 12 detik terakhir)
+  // Pantau heartbeat ESP32 secara realtime dengan toleransi 30 detik
   useEffect(() => {
     if (settings.activeMethod !== 'cloud_hotspot') {
       setIsEspOnline(settings.activeMethod === 'simulation');
@@ -524,24 +546,64 @@ export default function App() {
     }
 
     const checkEspPulse = () => {
+      const now = Date.now();
       const timeSinceLivePacket =
         lastPacketReceivedAtRef.current > 0
-          ? Date.now() - lastPacketReceivedAtRef.current
+          ? now - lastPacketReceivedAtRef.current
           : Infinity;
 
       const timeSinceDocEpoch = currentReading?.epochMs
-        ? Math.abs(Date.now() - currentReading.epochMs)
+        ? Math.abs(now - currentReading.epochMs)
         : Infinity;
 
-      // Online jika ada paket masuk ke browser dalam 10 detik ATAU dokumen terakhir berumur < 12 detik
-      const online = timeSinceLivePacket < 10000 || timeSinceDocEpoch < 12000;
+      // Online jika paket baru tiba dalam batas toleransi 30 detik,
+      // atau saat web pertama dibuka dokumen terakhir berumur < 30 detik
+      const online =
+        lastPacketReceivedAtRef.current > 0
+          ? timeSinceLivePacket < ESP32_OFFLINE_TIMEOUT_MS
+          : timeSinceDocEpoch < ESP32_OFFLINE_TIMEOUT_MS;
       setIsEspOnline(online);
     };
 
     checkEspPulse();
-    const pulseTimer = setInterval(checkEspPulse, 2000);
+    const pulseTimer = setInterval(checkEspPulse, 1000);
     return () => clearInterval(pulseTimer);
   }, [settings.activeMethod, currentReading]);
+
+  // Handler refresh manual untuk tombol sinkronisasi di dashboard
+  const handleRefreshFirestore = useCallback(async () => {
+    if (settings.activeMethod !== 'cloud_hotspot') return;
+    setIsInitialSyncing(true);
+    setStatusMessage('Menyegarkan data sensor Cloud...');
+    try {
+      const readings = await fetchLatestSensorReadingsOnce();
+      if (readings.length > 0) {
+        const latest = readings[0];
+        setCurrentReading(latest);
+        setHistory(readings);
+        setIsConnected(true);
+        const now = Date.now();
+        const docAgeMs = latest.epochMs ? Math.abs(now - latest.epochMs) : Infinity;
+        const isFresh = docAgeMs < ESP32_OFFLINE_TIMEOUT_MS;
+
+        if (isFresh) {
+          lastPacketReceivedAtRef.current = now;
+          setIsEspOnline(true);
+          setStatusMessage('Terhubung ke Firebase Cloud • ESP32 Aktif');
+        } else {
+          lastPacketReceivedAtRef.current = 0;
+          setIsEspOnline(false);
+          setStatusMessage('Terhubung ke Firebase Cloud • Menampilkan data rekaman terakhir');
+        }
+      }
+    } catch (err) {
+      console.warn('Gagal refresh data sensor:', err);
+    } finally {
+      setTimeout(() => {
+        setIsInitialSyncing(false);
+      }, 400);
+    }
+  }, [settings.activeMethod]);
 
   // 2. Mode Simulasi: HANYA berjalan jika mode 'simulation' aktif
   // Menghilangkan data dummy dari live mode secara ketat
@@ -830,20 +892,17 @@ export default function App() {
               onClick={() => setUserMenuOpen((prev) => !prev)}
               aria-label="Profil Akun Google Terhubung"
               title={`Akun: ${currentUser.email || 'Terautentikasi'}`}
-              className="flex items-center gap-1.5 p-1 text-zinc-300 hover:text-white transition-colors cursor-pointer rounded-md hover:bg-white/5"
+              className="w-[22px] h-[22px] rounded-full flex items-center justify-center text-zinc-300 hover:text-white transition-all cursor-pointer bg-white/5 hover:bg-white/10 border border-white/10 active:scale-95 p-0.5"
             >
               {currentUser.photoURL ? (
                 <img
                   src={currentUser.photoURL}
                   alt="Avatar"
-                  className="w-5 h-5 rounded-full border border-white/20 object-cover"
+                  className="w-4 h-4 rounded-full object-cover"
                 />
               ) : (
-                <UserIcon className="w-4 h-4 text-cyan-400" />
+                <UserIcon className="w-3.5 h-3.5 text-cyan-400" />
               )}
-              <span className="hidden sm:inline-block max-w-[120px] truncate text-[11px] font-mono text-zinc-300">
-                {currentUser.displayName || currentUser.email?.split('@')[0]}
-              </span>
             </button>
           ) : (
             <button
@@ -856,11 +915,11 @@ export default function App() {
                 }
               }}
               aria-label="Masuk dengan Akun Google"
-              title="Masuk dengan Akun Google (Opsional: untuk alarm & fitur anggota)"
-              className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-white/5 hover:bg-white/10 active:scale-95 border border-white/10 hover:border-white/20 transition-all duration-300 cursor-pointer group"
+              title="Masuk dengan Akun Google"
+              className="w-[22px] h-[22px] rounded-full flex items-center justify-center bg-white/5 hover:bg-white/10 active:scale-95 border border-white/10 hover:border-white/20 transition-all duration-300 cursor-pointer group p-0.5"
             >
               <svg
-                className="w-4 h-4 transition-transform duration-300 group-hover:scale-110 drop-shadow-[0_0_6px_rgba(255,255,255,0.2)] shrink-0"
+                className="w-3.5 h-3.5 transition-transform duration-300 group-hover:scale-110 drop-shadow-[0_0_6px_rgba(255,255,255,0.2)] shrink-0"
                 viewBox="0 0 24 24"
                 aria-hidden="true"
               >
@@ -881,9 +940,6 @@ export default function App() {
                   d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
                 />
               </svg>
-              <span className="text-[11px] font-sans text-zinc-300 group-hover:text-white hidden sm:inline">
-                Masuk
-              </span>
             </button>
           )}
 
@@ -1018,6 +1074,7 @@ export default function App() {
             activeMethod={settings.activeMethod}
             isConnected={isConnected}
             isEspOnline={isEspOnline}
+            isSyncing={isInitialSyncing}
             connectionStatusText={statusMessage}
             simAutoWalk={simAutoWalk}
             currentUser={currentUser}
@@ -1028,6 +1085,7 @@ export default function App() {
             }}
             onClearHistory={() => setHistory([])}
             onNavigateToConnect={() => setActivePage('connect')}
+            onRefresh={handleRefreshFirestore}
           />
         ) : (
           <ConnectionPage

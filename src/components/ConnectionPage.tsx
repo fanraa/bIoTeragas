@@ -33,6 +33,7 @@ import {
 } from '../types/biogas';
 import { ARDUINO_SKETCHES, INFO_TOPICS } from '../data/esp32Guides';
 import { InfoButton } from './InfoPopover';
+import { PWAInstallCard } from './PWAInstallCard';
 import {
   subscribeDeviceSettings,
   updateDeviceInterval,
@@ -1053,6 +1054,9 @@ export const ConnectionPage: React.FC<ConnectionPageProps> = ({
                 </button>
               </div>
             </div>
+
+            {/* 5. Pasang Aplikasi ke Layar Utama (PWA) */}
+            <PWAInstallCard />
           </section>
         </div>
       ) : (
@@ -1100,6 +1104,9 @@ export const ConnectionPage: React.FC<ConnectionPageProps> = ({
               </button>
             </div>
           </div>
+
+          {/* Pasang Aplikasi ke Layar Utama (PWA) */}
+          <PWAInstallCard />
         </div>
       )}
     </div>

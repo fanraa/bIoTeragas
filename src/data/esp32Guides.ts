@@ -345,6 +345,7 @@ bool authenticateDevice() {
 
   String authUrl = "https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=" + String(FIREBASE_API_KEY);
   http.begin(client, authUrl);
+  http.setTimeout(2500); // Batasi timeout 2.5 detik agar respon cepat saat koneksi drop
   http.addHeader("Content-Type", "application/json");
 
   String payload = "{\\"email\\":\\"" + String(DEVICE_EMAIL) + "\\",\\"password\\":\\"" + String(DEVICE_PASS) + "\\",\\"returnSecureToken\\":true}";
@@ -411,6 +412,7 @@ void sendToFirestore(float tempC, float kpa, float bar, float psi, long rawHX, c
                              "/documents/sensor_readings?documentId=" + docId;
 
   http.begin(client, firestoreEndpoint);
+  http.setTimeout(2500); // Batasi timeout 2.5 detik untuk respon instan jika koneksi putus
   http.addHeader("Content-Type", "application/json");
   http.addHeader("Authorization", "Bearer " + idToken);
 
@@ -483,8 +485,8 @@ void setup() {
     configTime(0, 0, "time.google.com", "id.pool.ntp.org", "pool.ntp.org");
     time_t now = time(nullptr);
     int ntpRetry = 0;
-    while (now < 1700000000 && ntpRetry < 30) {
-      delay(500);
+    while (now < 1700000000 && ntpRetry < 15) {
+      delay(200);
       Serial.print(F("."));
       now = time(nullptr);
       ntpRetry++;
@@ -492,7 +494,7 @@ void setup() {
     if (now >= 1700000000) {
       Serial.println(F(" Sinkron!"));
     } else {
-      Serial.println(F(" Belum sinkron, daemon NTP tetap berjalan di latar belakang."));
+      Serial.println(F(" Sinkronisasi berlanjut di latar belakang..."));
     }
 
     // Login pertama ke Firebase
@@ -539,7 +541,7 @@ void loop() {
   String rfcTimestamp = "";
   if (!getRFC3339Timestamp(rfcTimestamp)) {
     Serial.println(F("[NTP] Menunggu sinkronisasi waktu UTC dari server NTP..."));
-    delay(2000);
+    delay(800);
     return;
   }
 

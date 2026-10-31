@@ -3,15 +3,81 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>bIoTeragas | Monitoring Biogas Reaktor</title>
+    <title>bIoTeragas | Monitoring Biogas Reaktor — ITERA & SMAN 1 Jati Agung</title>
     <link rel="icon" type="image/png" href="https://cdn-icons-png.flaticon.com/128/188/188333.png" />
-    <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/128/188/188333.png" />
-    <meta name="description" content="bIoTeragas — Monitoring indikator suhu dan tekanan reaktor biogas berbasis IoT ESP32 secara realtime." />
-    <meta property="og:title" content="bIoTeragas | Monitoring Biogas Reaktor" />
-    <meta property="og:description" content="bIoTeragas — Monitoring indikator suhu dan tekanan reaktor biogas berbasis IoT ESP32 secara realtime." />
-    <meta property="og:image" content="https://cdn-icons-png.flaticon.com/128/188/188333.png" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="theme-color" content="#090B10" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="bIoTeragas" />
+    
+    <!-- Meta SEO & Indexing Google -->
+    <meta name="description" content="Sistem monitoring suhu dan tekanan reaktor biogas realtime berbasis IoT ESP32 bIoTeragas. Riset fisika energi terbarukan ITERA di SMAN 1 Jati Agung, Lampung." />
+    <meta name="keywords" content="biogas itera, bioteragas, biogas, biogas lampung, biogaslampung, monitoring biogas, reaktor biogas, fisika itera, fisika, jati agung, sman 1 jati agung, lampung selatan, iot esp32 biogas, energi terbarukan lampung, institut teknologi sumatera, itera" />
+    <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1" />
+    <meta name="googlebot" content="index, follow, max-snippet:-1, max-image-preview:large" />
+    <meta name="author" content="Fisika ITERA & SMAN 1 Jati Agung" />
+    <meta name="publisher" content="Institut Teknologi Sumatera (ITERA)" />
+    <meta name="geo.region" content="ID-LA" />
+    <meta name="geo.placename" content="Jati Agung, Lampung Selatan" />
+
+    <!-- OpenGraph Social Cards (Facebook, WhatsApp, Discord, Slack) -->
     <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="bIoTeragas" />
+    <meta property="og:title" content="bIoTeragas | Monitoring Biogas Reaktor — ITERA & SMAN 1 Jati Agung" />
+    <meta property="og:description" content="Platform monitoring suhu dan tekanan reaktor biogas realtime berbasis IoT ESP32. Kolaborasi riset fisika ITERA dan SMAN 1 Jati Agung, Lampung." />
+    <meta property="og:image" content="https://cdn-icons-png.flaticon.com/128/188/188333.png" />
+    <meta property="og:locale" content="id_ID" />
+
+    <!-- Twitter / X Cards -->
     <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content="bIoTeragas | Monitoring Biogas Reaktor — ITERA & SMAN 1 Jati Agung" />
+    <meta name="twitter:description" content="Platform monitoring suhu dan tekanan reaktor biogas realtime berbasis IoT ESP32. Kolaborasi riset fisika ITERA dan SMAN 1 Jati Agung, Lampung." />
+    <meta name="twitter:image" content="https://cdn-icons-png.flaticon.com/128/188/188333.png" />
+
+    <!-- Structured Data Schema.org (JSON-LD) untuk Google Rich Search -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@graph": [
+        {
+          "@type": "WebApplication",
+          "name": "bIoTeragas",
+          "alternateName": ["Biogas ITERA", "bIoTeragas Monitoring", "Biogas Lampung", "Biogas Jati Agung"],
+          "applicationCategory": "EducationalApplication",
+          "operatingSystem": "All",
+          "description": "Platform monitoring indikator suhu dan tekanan reaktor biogas berbasis IoT ESP32 secara realtime. Hasil kolaborasi riset fisika Institut Teknologi Sumatera (ITERA) dengan SMAN 1 Jati Agung, Lampung Selatan.",
+          "keywords": "biogas itera, bioteragas, biogas, biogas lampung, biogaslampung, monitoring biogas, reaktor biogas, fisika itera, fisika, jati agung, sman 1 jati agung",
+          "browserRequirements": "Requires JavaScript. Requires HTML5.",
+          "inLanguage": "id-ID"
+        },
+        {
+          "@type": "ResearchProject",
+          "name": "Monitoring Biogas Reaktor IoT ESP32",
+          "alternateName": "bIoTeragas Fisika ITERA & SMAN 1 Jati Agung",
+          "description": "Riset monitoring energi terbarukan biogas berbasis IoT sensor suhu dan tekanan di SMAN 1 Jati Agung bersama tim Fisika Institut Teknologi Sumatera (ITERA).",
+          "location": {
+            "@type": "Place",
+            "name": "SMAN 1 Jati Agung",
+            "address": {
+              "@type": "PostalAddress",
+              "addressLocality": "Jati Agung",
+              "addressRegion": "Lampung Selatan",
+              "addressCountry": "ID"
+            }
+          },
+          "funder": {
+            "@type": "EducationalOrganization",
+            "name": "Institut Teknologi Sumatera (ITERA)"
+          }
+        }
+      ]
+    }
+    </script>
+
+    <!-- Font Loading -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
@@ -21,4 +87,3 @@
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
-
