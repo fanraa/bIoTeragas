@@ -51,27 +51,27 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onComplete }) => {
 
   return (
     <div
-      className={`fixed inset-0 z-[99999] flex flex-col justify-between bg-black select-none transition-opacity duration-600 ease-out overflow-hidden ${
+      className={`fixed inset-0 z-[99999] flex flex-col items-center justify-center bg-black select-none transition-opacity duration-600 ease-out overflow-hidden ${
         isExiting ? 'opacity-0 pointer-events-none' : 'opacity-100'
       }`}
       style={{ backgroundColor: '#000000' }}
       aria-hidden="true"
     >
       {/* BAGIAN ATAS: Gambar sesuai permintaan dengan gradasi ke hitam di bawahnya agar menyatu */}
-      <div className="relative w-full h-[46vh] sm:h-[50vh] overflow-hidden shrink-0">
+      <div className="absolute top-0 inset-x-0 h-[48vh] overflow-hidden pointer-events-none">
         <img
           src="https://images.pexels.com/photos/8067161/pexels-photo-8067161.jpeg"
           alt="Suasana Reaktor Biogas"
           className="w-full h-full object-cover object-center"
           draggable={false}
         />
-        {/* Lapisan gradasi halus: memudar dari foto ke warna hitam pekat di bagian bawah */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-transparent" />
-        <div className="absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-black to-transparent" />
+        {/* Lapisan gradasi halus: memudar dari foto ke warna hitam pekat */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent" />
+        <div className="absolute inset-x-0 bottom-0 h-36 bg-gradient-to-t from-black via-black/90 to-transparent" />
       </div>
 
-      {/* BAGIAN BAWAH: Ikon Murni (Tanpa Cahaya/Shadow di Belakang) & Nama Aplikasi */}
-      <div className="flex-1 flex flex-col items-center justify-center text-center px-6 -mt-8 relative z-10 pb-12">
+      {/* TENGAH: Ikon Bersih dan Nama Aplikasi Berada Persis di Tengah Layar */}
+      <div className="relative z-10 flex flex-col items-center justify-center text-center px-6">
         <img
           src="https://cdn-icons-png.flaticon.com/128/188/188333.png"
           alt="bIoTeragas Logo"

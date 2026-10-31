@@ -93,12 +93,77 @@ export default function App() {
   const [userMenuOpen, setUserMenuOpen] = useState<boolean>(false);
   const userBtnRef = useRef<HTMLButtonElement | null>(null);
 
+  // State dan referensi untuk fitur native "Geser sekali lagi untuk keluar"
+  const [exitToastVisible, setExitToastVisible] = useState(false);
+  const lastBackPressRef = useRef<number>(0);
+  const exitToastTimerRef = useRef<any>(null);
+
   useEffect(() => {
     const timer = setInterval(() => {
       setCurrentDate(formatDateNow());
     }, 10000);
     return () => clearInterval(timer);
   }, []);
+
+  // Intersep Gesture Swipe Back / Tombol Kembali HP layaknya aplikasi Android native
+  useEffect(() => {
+    try {
+      if (!window.history.state || !window.history.state.bioteragasApp) {
+        window.history.pushState({ bioteragasApp: true }, '');
+      }
+    } catch {
+      // ignore
+    }
+
+    const handlePopState = () => {
+      // 1. Jika modal sambungkan cepat terbuka, tutup modal
+      if (quickConnectOpen) {
+        setQuickConnectOpen(false);
+        try { window.history.pushState({ bioteragasApp: true }, ''); } catch {}
+        return;
+      }
+
+      // 2. Jika popover profil terbuka, tutup profil
+      if (userMenuOpen) {
+        setUserMenuOpen(false);
+        try { window.history.pushState({ bioteragasApp: true }, ''); } catch {}
+        return;
+      }
+
+      // 3. Jika sedang di tab Pengaturan, kembali ke Dashboard
+      if (activePage === 'connect') {
+        setActivePage('dashboard');
+        try { window.history.pushState({ bioteragasApp: true }, ''); } catch {}
+        return;
+      }
+
+      // 4. Jika sudah di Dashboard (halaman utama):
+      const now = Date.now();
+      if (now - lastBackPressRef.current < 2200) {
+        // Geseran kedua dalam 2.2 detik: izinkan keluar aplikasi
+        if (exitToastTimerRef.current) clearTimeout(exitToastTimerRef.current);
+        setExitToastVisible(false);
+        window.history.back();
+      } else {
+        // Geseran pertama: tahan di aplikasi dan tampilkan notifikasi toast
+        lastBackPressRef.current = now;
+        try { window.history.pushState({ bioteragasApp: true }, ''); } catch {}
+        setExitToastVisible(true);
+
+        if (exitToastTimerRef.current) clearTimeout(exitToastTimerRef.current);
+        exitToastTimerRef.current = setTimeout(() => {
+          setExitToastVisible(false);
+          lastBackPressRef.current = 0;
+        }, 2200);
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+      if (exitToastTimerRef.current) clearTimeout(exitToastTimerRef.current);
+    };
+  }, [activePage, quickConnectOpen, userMenuOpen]);
 
   // Shortcut Keyboard 'F' untuk Toggle Fullscreen (hanya saat tidak sedang mengetik di input/textarea/editable)
   useEffect(() => {
@@ -1350,6 +1415,21 @@ export default function App() {
           </div>
         </FloatingAnchorBox>
       )}
+
+      {/* Toast Notifikasi Minimalis: Geser sekali lagi untuk keluar */}
+      <div
+        className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-[99990] transition-all duration-300 ease-out transform ${
+          exitToastVisible
+            ? 'opacity-100 translate-y-0 scale-100'
+            : 'opacity-0 translate-y-3 scale-95 pointer-events-none'
+        }`}
+        aria-live="polite"
+      >
+        <div className="bg-[#121214]/95 border border-white/15 text-zinc-100 text-xs px-4 py-2 rounded-full shadow-2xl backdrop-blur-md flex items-center gap-2 select-none">
+          <span className="text-zinc-400 text-xs">↩</span>
+          <span className="font-medium tracking-wide">Geser sekali lagi untuk keluar</span>
+        </div>
+      </div>
     </div>
   );
 }
