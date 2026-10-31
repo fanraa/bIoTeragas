@@ -16,6 +16,16 @@ import { SensorReading, FirestoreSensorReadingDoc } from '../types/biogas';
 const COLLECTION_NAME = 'sensor_readings';
 const SETTINGS_DOC_PATH = 'device_settings/esp32_config';
 
+export const OWNER_EMAILS = [
+  'irfanrizkiaditri@gmail.com',
+  'irfanrizkiaditri01@gmail.com'
+];
+
+export function isUserOwner(user?: { email?: string | null } | null): boolean {
+  if (!user?.email) return false;
+  return OWNER_EMAILS.includes(user.email.toLowerCase().trim());
+}
+
 /**
  * Format timestamp Firestore (Timestamp object, ISO string, atau number) ke string jam lokal WIB
  */
@@ -207,7 +217,7 @@ export interface DeviceConfig {
   wifi_pass?: string;
   ap_ssid?: string;
   ap_pass?: string;
-  credentials_version?: number;
+  credentials_version?: string | number;
   last_synced_from?: string;
   updated_at?: string;
   updated_by?: string;
@@ -237,7 +247,7 @@ export function subscribeDeviceSettings(
             wifi_pass: typeof data.wifi_pass === 'string' ? data.wifi_pass : '',
             ap_ssid: typeof data.ap_ssid === 'string' ? data.ap_ssid : 'BioSense-ESP32-AP',
             ap_pass: typeof data.ap_pass === 'string' ? data.ap_pass : '12345678',
-            credentials_version: typeof data.credentials_version === 'number' ? data.credentials_version : 0,
+            credentials_version: data.credentials_version ? String(data.credentials_version) : undefined,
             last_synced_from: data.last_synced_from,
             updated_at: data.updated_at,
             updated_by: data.updated_by
@@ -306,7 +316,7 @@ export async function updateDeviceWifiAndAp(
 ): Promise<void> {
   try {
     const docRef = doc(db, 'device_settings', 'esp32_config');
-    const version = Date.now();
+    const version = String(Date.now());
     await setDoc(
       docRef,
       {

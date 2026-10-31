@@ -13,6 +13,7 @@ import {
 } from '../types/biogas';
 import { InfoButton, FloatingAnchorBox } from './InfoPopover';
 import { WeatherCard } from './WeatherCard';
+import { isUserOwner } from '../services/sensorFirestoreService';
 
 interface DashboardViewProps {
   currentReading: SensorReading;
@@ -111,13 +112,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     );
   };
 
-  const isCloudWithoutUser = activeMethod === 'cloud_hotspot' && !currentUser;
+  // Data sensor dapat diakses langsung oleh publik (tamu) maupun pengguna terdaftar
   const hasData =
     activeMethod === 'simulation'
       ? true
-      : isCloudWithoutUser
-      ? false
-      : history.length > 0 || (currentReading.id !== 'awaiting' && (currentReading.temperatureC > 0 || currentReading.pressureKpa > 0));
+      : history.length > 0 ||
+        (currentReading.id !== 'awaiting' &&
+          (currentReading.temperatureC > 0 || currentReading.pressureKpa > 0));
 
   // Status Suhu: warna pada teks dan kotak kecil di pojok bawah
   const getTempStatus = () => {
@@ -246,7 +247,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 isConnected ? 'bg-emerald-400' : 'bg-zinc-500'
               }`}
             />
-            <span className="text-zinc-200 font-medium whitespace-nowrap">
+            <span className="text-zinc-200 font-medium whitespace-nowrap flex items-center gap-1.5">
               {activeMethod === 'cloud_hotspot' ? (
                 <>
                   <span className="hidden sm:inline">Terhubung Ke </span>
@@ -693,9 +694,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               {history.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="h-[210px] text-center text-zinc-400 font-sans align-middle">
-                    {isCloudWithoutUser
-                      ? 'Silakan masuk akun Google untuk melihat sinkronisasi sensor online.'
-                      : activeMethod === 'cloud_hotspot'
+                    {activeMethod === 'cloud_hotspot'
                       ? 'Menunggu data sensor ESP32 masuk dari Firebase Cloud Firestore...'
                       : 'Belum ada riwayat pembacaan sensor.'}
                   </td>

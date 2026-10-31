@@ -1,19 +1,19 @@
 /*
  * ============================================================================
- * BioSense ITERA — IoT Biogas Monitoring (ESP32 Dual-Config v2.0)
+ * BioSense ITERA — IoT Biogas Monitoring (ESP32 Dual-Config v2.1 Fixed)
  * ============================================================================
- * Fitur Sinkronisasi Sempurna Dua Arah (Web Cloud & Hotspot Captive Portal):
- *   1. CARA 2 (Captive Portal On-Device):
- *      - Jika Wi-Fi gagal konek dalam 25 detik, ESP32 menyalakan Hotspot mandiri (SoftAP).
- *      - Nama & password hotspot bisa di-kustomisasi bebas (misal: bIoTeragas).
- *      - UI Captive Portal modern & responsif di 192.168.4.1 (desain senada Web BioSense).
- *      - Tersimpan permanen di memori Flash ESP32 (Preferences NVS).
- *      - Saat ESP32 tersambung internet, setelan lokal ini otomatis disinkronkan ke Web Firestore!
- *
- *   2. CARA 3 (Remote Config Cloud via Web):
- *      - ESP32 mengecek Firestore setiap 30 detik menggunakan sistem Versioning (credentials_version).
- *      - Hanya menerapkan perubahan jika ada perintah baru dari Web, sehingga TIDAK terjadi
- *        loop disconnect atau menimpa setelan yang baru saja Anda ubah di portal.
+ * Perbaikan Masalah Putus-Nyambung & Hotspot Muncul Lagi:
+ *   1. Eliminasi Infinite Restart Loop:
+ *      - Menggunakan String Command ID (bukan perbandingan integer timestamp yang rentan overflow).
+ *      - Tidak akan me-restart alat jika nama & password Wi-Fi sama persis.
+ *      - Portal setup langsung mengupdate NVS dan menandai status sebagai lokal.
+ *   2. Dukungan Penuh Wi-Fi Terbuka (Tanpa Password, misal Wi-Fi Kost):
+ *      - Jika password kosong, ESP32 memanggil WiFi.begin(ssid) mode OPEN tanpa paksa WPA.
+ *   3. Diagnostik Lengkap:
+ *      - Serial Monitor menampilkan status detil (SSID ditemukan, status IP, sinyal RSSI).
+ *   4. UI Captive Portal Modern (192.168.4.1):
+ *      - Desain senada BioSense Web (Dark Slate #090B10, Glass Card #12151E, Cyan accents).
+ *      - Live monitor sensor Suhu & Tekanan langsung di HP.
  *
  * Hardware Pinout:
  *   - Sensor Suhu: DHT11 (VCC -> 3V3, DATA -> GPIO 4, GND -> GND)
@@ -32,14 +32,14 @@
 #include <time.h>
 
 // ============================================================================
-// 1. DEFAULT KREDENSIAL AWAL (Akan ditimpa jika ada di memori Flash NVS)
+// 1. KREDENSIAL DEFAULT AWAL (Ditandai di memori Flash NVS)
 // ============================================================================
 const char* DEFAULT_WIFI_SSID = "FANRA  4G";
 const char* DEFAULT_WIFI_PASS = "#12345678";
 
-// Kredensial Hotspot Mandiri ESP32 (Bisa Anda Kustom Bebas)
+// Kredensial Hotspot Mandiri ESP32 (Bisa dikustom via 192.168.4.1 atau Web)
 const char* DEFAULT_AP_SSID   = "BioSense-ESP32-AP";
-const char* DEFAULT_AP_PASS   = "12345678"; // Minimal 8 karakter
+const char* DEFAULT_AP_PASS   = "12345678";
 
 // ============================================================================
 // 2. KONFIGURASI FIREBASE PROYEK fanracrate
@@ -53,7 +53,7 @@ const char* DEVICE_EMAIL = "esp32@biosense.itera.ac.id";
 const char* DEVICE_PASS  = "BiogasItera2026!";
 
 // ============================================================================
-// 3. PINOUT SENSOR & KALIBRASI TEKANAN (Jati Agung, Lampung Selatan ~100 mdpl)
+// 3. PINOUT SENSOR & KALIBRASI TEKANAN
 // ============================================================================
 constexpr uint8_t PIN_DHT          = 4;
 constexpr uint8_t PIN_HX710B_DOUT  = 16;
@@ -68,7 +68,7 @@ constexpr float CALIBRATION_COUNTS_KPA   = 21500.0f;
 constexpr float ATMOSPHERIC_PRESSURE_KPA = 101.3f;
 
 // ============================================================================
-// 4. MEMORI NON-VOLATIL (NVS) & VARIABEL GLOBAL DINAMIS
+// 4. MEMORI NON-VOLATIL (NVS) & STATE GLOBAL
 // ============================================================================
 Preferences prefs;
 
@@ -76,12 +76,12 @@ String currentWifiSSID = "";
 String currentWifiPass = "";
 String currentApSSID   = "";
 String currentApPass   = "";
-unsigned long localCredVersion = 0;
+String lastAppliedCmdId = "";
 
 unsigned long sendIntervalMs = 5000;
 unsigned long lastSendTime = 0;
 unsigned long lastConfigCheckTime = 0;
-constexpr unsigned long CONFIG_CHECK_INTERVAL_MS = 30000; // Cek Cloud tiap 30 detik
+constexpr unsigned long CONFIG_CHECK_INTERVAL_MS = 30000;
 
 String firebaseIdToken = "";
 unsigned long tokenExpiresAtMs = 0;
@@ -101,7 +101,7 @@ long  lastRawPres = 613000;
 // PROTOTYPE FUNGSI
 // ============================================================================
 void loadCredentialsFromNVS();
-void saveCredentialsToNVS(const String& ssid, const String& pass, const String& apSsid, const String& apPass, unsigned long newVersion);
+void saveCredentialsToNVS(const String& ssid, const String& pass, const String& apSsid, const String& apPass, const String& cmdId);
 bool connectToWiFi(unsigned long timeoutMs = 20000);
 void startCaptivePortal();
 void handlePortalRoot();
@@ -125,7 +125,7 @@ void loadCredentialsFromNVS() {
   currentWifiPass  = prefs.getString("wifi_pass", DEFAULT_WIFI_PASS);
   currentApSSID    = prefs.getString("ap_ssid", DEFAULT_AP_SSID);
   currentApPass    = prefs.getString("ap_pass", DEFAULT_AP_PASS);
-  localCredVersion = prefs.getULong("cred_ver", 0);
+  lastAppliedCmdId = prefs.getString("applied_id", "init");
   uint32_t savedSec = prefs.getUInt("interval_sec", 5);
 
   if (savedSec >= 1 && savedSec <= 60) {
@@ -138,29 +138,29 @@ void loadCredentialsFromNVS() {
   Serial.printf("      - Target Wi-Fi SSID : '%s'\n", currentWifiSSID.c_str());
   Serial.printf("      - Hotspot ESP32 (AP): '%s'\n", currentApSSID.c_str());
   Serial.printf("      - Password AP       : '%s'\n", currentApPass.c_str());
-  Serial.printf("      - Versi Kredensial  : %lu\n", localCredVersion);
+  Serial.printf("      - Command ID Aktif  : '%s'\n", lastAppliedCmdId.c_str());
 }
 
-void saveCredentialsToNVS(const String& ssid, const String& pass, const String& apSsid, const String& apPass, unsigned long newVersion) {
+void saveCredentialsToNVS(const String& ssid, const String& pass, const String& apSsid, const String& apPass, const String& cmdId) {
   prefs.begin("biosense", false);
   if (ssid.length() > 0) prefs.putString("wifi_ssid", ssid);
-  if (pass.length() > 0) prefs.putString("wifi_pass", pass);
+  prefs.putString("wifi_pass", pass); // Bisa kosong untuk open Wi-Fi
   if (apSsid.length() > 0) prefs.putString("ap_ssid", apSsid);
   if (apPass.length() > 0) prefs.putString("ap_pass", apPass);
-  if (newVersion > 0) prefs.putULong("cred_ver", newVersion);
+  if (cmdId.length() > 0) prefs.putString("applied_id", cmdId);
   prefs.end();
 
   if (ssid.length() > 0) currentWifiSSID = ssid;
-  if (pass.length() > 0) currentWifiPass = pass;
+  currentWifiPass = pass;
   if (apSsid.length() > 0) currentApSSID = apSsid;
   if (apPass.length() > 0) currentApPass = apPass;
-  if (newVersion > 0) localCredVersion = newVersion;
+  if (cmdId.length() > 0) lastAppliedCmdId = cmdId;
 
   Serial.println(F("[NVS] Kredensial baru berhasil disimpan permanen ke Flash ESP32!"));
 }
 
 // ============================================================================
-// KONEKSI WI-FI DENGAN AUTO-RECONNECT
+// KONEKSI WI-FI DENGAN AUTO-RECONNECT & DUKUNGAN OPEN WI-FI
 // ============================================================================
 bool connectToWiFi(unsigned long timeoutMs) {
   Serial.printf("[Wi-Fi] Menghubungkan ke SSID: '%s' ...\n", currentWifiSSID.c_str());
@@ -168,7 +168,13 @@ bool connectToWiFi(unsigned long timeoutMs) {
   WiFi.mode(WIFI_STA);
   WiFi.setAutoReconnect(true);
   WiFi.persistent(true);
-  WiFi.begin(currentWifiSSID.c_str(), currentWifiPass.c_str());
+
+  if (currentWifiPass.length() > 0) {
+    WiFi.begin(currentWifiSSID.c_str(), currentWifiPass.c_str());
+  } else {
+    Serial.println(F("[Wi-Fi] Menghubungkan ke jaringan TERBUKA (tanpa password)..."));
+    WiFi.begin(currentWifiSSID.c_str());
+  }
 
   unsigned long start = millis();
   while (WiFi.status() != WL_CONNECTED && (millis() - start < timeoutMs)) {
@@ -178,16 +184,18 @@ bool connectToWiFi(unsigned long timeoutMs) {
   Serial.println();
 
   if (WiFi.status() == WL_CONNECTED) {
-    Serial.printf("[Wi-Fi] BERHASIL TERHUBUNG! IP ESP32: %s\n", WiFi.localIP().toString().c_str());
+    Serial.printf("[Wi-Fi] BERHASIL TERHUBUNG! IP ESP32: %s | Sinyal: %d dBm\n", 
+                  WiFi.localIP().toString().c_str(), WiFi.RSSI());
     return true;
   }
 
-  Serial.println(F("[Wi-Fi] Gagal terhubung ke Wi-Fi target."));
+  Serial.printf("[Wi-Fi] Gagal terhubung ke '%s' (Status Code: %d)\n", currentWifiSSID.c_str(), WiFi.status());
+  Serial.println(F("[Info] Jika memakai Hotspot HP, pastikan pengaturan frekuensi di HP adalah '2.4 GHz Band'."));
   return false;
 }
 
 // ============================================================================
-// CARA 2: AKTIFKAN CAPTIVE PORTAL (HOTSPOT MANDIRI DENGAN UI MODERN)
+// CARA 2: AKTIFKAN CAPTIVE PORTAL (HOTSPOT MANDIRI MODERN)
 // ============================================================================
 void startCaptivePortal() {
   isAPMode = true;
@@ -198,7 +206,7 @@ void startCaptivePortal() {
   if (currentApPass.length() >= 8) {
     WiFi.softAP(currentApSSID.c_str(), currentApPass.c_str());
   } else {
-    WiFi.softAP(currentApSSID.c_str()); // Open jika password kosong/<8 char
+    WiFi.softAP(currentApSSID.c_str());
   }
 
   delay(400);
@@ -246,7 +254,7 @@ void handlePortalRoot() {
   html += F(".badge{display:inline-block;padding:3px 9px;background:rgba(6,182,212,0.15);color:#38bdf8;border:1px solid rgba(6,182,212,0.3);border-radius:6px;font-size:10px;font-family:monospace;margin-bottom:14px;}");
   
   // Sensor live preview
-  html += F(".sensor-box{background:rgba(0,0,0,0.4);border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:12px;margin-bottom:18px;display:grid;grid-template-cols:1fr 1fr;grid-template-columns:1fr 1fr;gap:10px;}");
+  html += F(".sensor-box{background:rgba(0,0,0,0.4);border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:12px;margin-bottom:18px;display:grid;grid-template-columns:1fr 1fr;gap:10px;}");
   html += F(".s-item{text-align:center;}");
   html += F(".s-label{font-size:10px;color:#94a3b8;text-transform:uppercase;letter-spacing:0.5px;}");
   html += F(".s-val{font-size:18px;font-weight:700;color:#38bdf8;font-family:monospace;margin-top:2px;}");
@@ -268,7 +276,7 @@ void handlePortalRoot() {
   html += F("<div class='container'>");
   html += F("<div class='header'><div class='dot'></div><h1>BioSense ITERA — Setup</h1></div>");
   html += F("<div class='badge'>📡 Hotspot Mandiri ESP32 (Cara 2)</div>");
-  html += F("<p class='sub'>Atur nama Wi-Fi target serta ganti nama/password hotspot alat ini secara instan.</p>");
+  html += F("<p class='sub'>Atur koneksi Wi-Fi dan nama Hotspot alat ini. Data disimpan permanen ke memori flash ESP32.</p>");
 
   // Live sensor box
   html += F("<div class='sensor-box'>");
@@ -290,7 +298,7 @@ void handlePortalRoot() {
   html += "<input type='text' id='ssid' name='ssid' value='" + currentWifiSSID + "' required placeholder='Nama Hotspot HP Anda'>";
 
   html += F("<label>Password Wi-Fi Target</label>");
-  html += "<input type='password' id='pass' name='pass' value='" + currentWifiPass + "' placeholder='Kosongkan jika tanpa password'>";
+  html += "<input type='password' id='pass' name='pass' value='" + currentWifiPass + "' placeholder='Kosongkan jika Wi-Fi Kost tanpa password'>";
 
   html += F("<div class='sec-title' style='margin-top:16px;'>2. Hotspot Mandiri ESP32 <span class='sec-badge' style='background:rgba(245,158,11,0.2);color:#fbbf24;'>Bisa Kustom</span></div>");
   html += F("<label>Nama Hotspot ESP32 (AP SSID)</label>");
@@ -309,7 +317,7 @@ void handlePortalRoot() {
   html += F("  const el = document.getElementById('scanResults');");
   html += F("  el.innerHTML = '<span style=\"color:#38bdf8;font-size:11px;\">Memindai sinyal 2.4 GHz...</span>';");
   html += F("  fetch('/scan').then(r=>r.json()).then(data=>{");
-  html += F("    if(!data.length){ el.innerHTML = '<span style=\"color:#ef4444;font-size:11px;\">Tidak ada sinyal Wi-Fi ditemukan.</span>'; return; }");
+  html += F("    if(!data.length){ el.innerHTML = '<span style=\"color:#ef4444;font-size:11px;\">Tidak ada sinyal Wi-Fi ditemukan. Pastikan hotspot HP aktif di band 2.4 GHz.</span>'; return; }");
   html += F("    let s = '<select onchange=\"document.getElementById(\\'ssid\\').value=this.value;\"><option value=\"\">-- Pilih Wi-Fi Terdeteksi --</option>';");
   html += F("    data.forEach(w=>{ s += `<option value=\"${w.ssid}\">${w.ssid} (${w.rssi} dBm)</option>`; });");
   html += F("    s += '</select>';");
@@ -345,17 +353,14 @@ void handlePortalSave() {
   String newApSsid = server.hasArg("ap_ssid") ? server.arg("ap_ssid") : "";
   String newApPass = server.hasArg("ap_pass") ? server.arg("ap_pass") : "";
 
-  // JANGAN trim sembarangan jika SSID mengandung spasi ganda seperti "FANRA  4G"
   if (newSsid.length() == 0) {
     server.send(400, "text/plain", "Error: SSID Wi-Fi tidak boleh kosong!");
     return;
   }
 
-  // Buat versi kredensial baru berbasis timestamp / millis
-  unsigned long newVer = (unsigned long)time(nullptr);
-  if (newVer < 1000) newVer = millis();
-
-  saveCredentialsToNVS(newSsid, newPass, newApSsid, newApPass, newVer);
+  // Tandai bahwa ini adalah setelan lokal dari portal sehingga tidak tertimpa cloud
+  String portalCmdId = "portal_" + String(millis());
+  saveCredentialsToNVS(newSsid, newPass, newApSsid, newApPass, portalCmdId);
 
   String html = F("<!DOCTYPE html><html><head><meta charset='UTF-8'><meta name='viewport' content='width=device-width,initial-scale=1.0'>");
   html += F("<title>Tersimpan</title><style>body{background:#090B10;color:#fff;font-family:sans-serif;text-align:center;padding:40px 20px;}h2{color:#38bdf8;margin-bottom:10px;}p{color:#94a3b8;font-size:13px;line-height:1.6;}</style></head><body>");
@@ -384,7 +389,7 @@ void handlePortalData() {
 }
 
 // ============================================================================
-// CARA 3: PENGECEKAN REMOTE CONFIG CLOUD DARI FIRESTORE (DENGAN VERSIONING)
+// CARA 3: PENGECEKAN REMOTE CONFIG CLOUD DARI FIRESTORE (ANTI-LOOP RESTART)
 // ============================================================================
 void checkRemoteDeviceConfig() {
   if (!refreshFirebaseAuthToken()) return;
@@ -431,18 +436,18 @@ void checkRemoteDeviceConfig() {
         }
       }
 
-      // 2. Cek Kredensial Wi-Fi & AP dengan VERSIONING
-      // Hanya terapkan jika ada update baru yang dikirim dari Web (credentials_version > localCredVersion)
-      unsigned long cloudVer = 0;
+      // 2. Cek Kredensial Wi-Fi & AP dengan Command ID (ANTI-LOOP)
+      String cloudCmdId = "";
       if (fields.containsKey("credentials_version")) {
         if (fields["credentials_version"].containsKey("integerValue")) {
-          cloudVer = strtoul(fields["credentials_version"]["integerValue"], nullptr, 10);
+          cloudCmdId = String((const char*)fields["credentials_version"]["integerValue"]);
         } else if (fields["credentials_version"].containsKey("doubleValue")) {
-          cloudVer = (unsigned long)fields["credentials_version"]["doubleValue"];
+          cloudCmdId = String((unsigned long)fields["credentials_version"]["doubleValue"]);
         }
       }
 
-      if (cloudVer > 0 && cloudVer > localCredVersion) {
+      // Hanya proses jika Cloud mengirim Command ID yang BERBEDA dari yang tersimpan di NVS
+      if (cloudCmdId.length() > 0 && cloudCmdId != lastAppliedCmdId && !cloudCmdId.startsWith("portal_")) {
         String newWifiSsid = currentWifiSSID;
         String newWifiPass = currentWifiPass;
         String newApSsid   = currentApSSID;
@@ -461,18 +466,33 @@ void checkRemoteDeviceConfig() {
           newApPass = String((const char*)fields["ap_pass"]["stringValue"]);
         }
 
-        Serial.println(F("[Cloud Config] Perintah Kredensial Baru Diterima dari Web!"));
-        saveCredentialsToNVS(newWifiSsid, newWifiPass, newApSsid, newApPass, cloudVer);
-        Serial.println(F("[Cloud Config] Me-restart ESP32 untuk menerapkan koneksi baru..."));
-        delay(1000);
-        ESP.restart();
+        // Cek apakah benar-benar ada data yang BERUBAH
+        bool actuallyChanged = (newWifiSsid != currentWifiSSID) ||
+                               (newWifiPass != currentWifiPass) ||
+                               (newApSsid   != currentApSSID)   ||
+                               (newApPass   != currentApPass);
+
+        if (actuallyChanged) {
+          Serial.println(F("[Cloud Config] Perintah Kredensial Baru Diterima dari Web!"));
+          Serial.printf("               Wi-Fi Baru: '%s' | AP Baru: '%s'\n", newWifiSsid.c_str(), newApSsid.c_str());
+          saveCredentialsToNVS(newWifiSsid, newWifiPass, newApSsid, newApPass, cloudCmdId);
+          Serial.println(F("[Cloud Config] Me-restart ESP32 untuk menerapkan koneksi baru..."));
+          delay(1000);
+          ESP.restart();
+        } else {
+          // Nilai sama persis, cukup update command ID tanpa restart agar koneksi tidak putus
+          prefs.begin("biosense", false);
+          prefs.putString("applied_id", cloudCmdId);
+          prefs.end();
+          lastAppliedCmdId = cloudCmdId;
+        }
       }
     }
   }
   https.end();
 }
 
-// Sinkronkan Nama Hotspot & Wi-Fi lokal ke Firestore saat pertama kali online
+// Sinkronkan Nama Hotspot & Wi-Fi lokal ke Firestore saat berhasil online
 void syncLocalConfigToFirestore() {
   if (!refreshFirebaseAuthToken()) return;
 
@@ -695,7 +715,7 @@ void setup() {
   Serial.begin(115200);
   delay(1000);
   Serial.println(F("\n=================================================="));
-  Serial.println(F(" BioSense ITERA — ESP32 Dual-Config Edition v2.0"));
+  Serial.println(F(" BioSense ITERA — ESP32 Dual-Config v2.1 Fixed"));
   Serial.println(F("=================================================="));
 
   pinMode(PIN_HX710B_DOUT, INPUT_PULLUP);
@@ -711,7 +731,7 @@ void setup() {
 
   if (!wifiOk) {
     // CARA 2: Jika gagal konek, nyalakan Hotspot Captive Portal otomatis
-    Serial.println(F("[Setup] Wi-Fi tidak ditemukan. Mengaktifkan Hotspot Mandiri (Cara 2)..."));
+    Serial.println(F("[Setup] Wi-Fi tidak terhubung. Mengaktifkan Hotspot Mandiri (Cara 2)..."));
     startCaptivePortal();
   } else {
     isAPMode = false;
@@ -766,9 +786,9 @@ void loop() {
       Serial.println(F("[Wi-Fi] Terputus. Menunggu auto-reconnect..."));
     }
 
-    // Jika terputus lebih dari 25 detik, otomatis aktifkan Hotspot Mandiri
-    if (millis() - disconnectStart > 25000) {
-      Serial.println(F("[Wi-Fi] Terputus > 25 detik. Beralih ke Hotspot Mandiri (Cara 2)..."));
+    // Jika terputus lebih dari 30 detik, barulah aktifkan Hotspot Mandiri
+    if (millis() - disconnectStart > 30000) {
+      Serial.println(F("[Wi-Fi] Terputus > 30 detik. Beralih ke Hotspot Mandiri (Cara 2)..."));
       startCaptivePortal();
       disconnectStart = 0;
       return;

@@ -181,22 +181,12 @@ export default function App() {
       setCurrentUser(user);
       if (user) {
         if (settings.activeMethod === 'cloud_hotspot') {
-          setStatusMessage(`Terautentikasi: ${user.email} • Menghubungkan ke Firestore...`);
+          setStatusMessage(`Terhubung ke Firebase Cloud Firestore (Live)`);
         }
       } else {
-        // Saat keluar akun, bersihkan pembacaan sensor dan riwayat pada mode cloud
-        if (settings.activeMethod !== 'simulation') {
-          setCurrentReading({
-            id: 'awaiting',
-            timestamp: '--:--:--',
-            temperatureC: 0,
-            pressureKpa: 0,
-            source: settings.activeMethod
-          });
-          setHistory([]);
-          setIsConnected(false);
-          setIsEspOnline(false);
-          setStatusMessage('Silakan masuk akun Google untuk sinkronisasi Firebase Firestore.');
+        // Mode Publik: Tidak perlu login untuk melihat suhu & tekanan
+        if (settings.activeMethod === 'cloud_hotspot') {
+          setStatusMessage('Terhubung ke Firebase Cloud Firestore (Live)');
         }
       }
     });
@@ -479,18 +469,17 @@ export default function App() {
     setStatusMessage('Sambungan ke perangkat ESP32 telah diputuskan.');
   }, []);
 
-  // 1. Integrasi Listener Realtime Firebase Cloud Firestore
+  // 1. Integrasi Listener Realtime Firebase Cloud Firestore (Terbuka untuk Tamu & Pengguna)
   useEffect(() => {
     if (settings.activeMethod !== 'cloud_hotspot') return;
 
-    if (!currentUser) {
-      setIsConnected(false);
-      setIsEspOnline(false);
-      setStatusMessage('Silakan Masuk Akun Google untuk sinkronisasi Firebase Firestore online.');
-      return;
-    }
+    const currentRole = currentUser
+      ? isUserOwner(currentUser)
+        ? 'Admin PKM'
+        : 'Anggota'
+      : 'Tamu (Publik)';
 
-    setStatusMessage('Terhubung ke Firebase Cloud...');
+    setStatusMessage(`Terhubung ke Firebase Cloud (${currentRole})...`);
     setIsConnected(true);
 
     const unsubscribe = subscribeLatestSensorReadings(
@@ -499,7 +488,7 @@ export default function App() {
           setCurrentReading(readings[0]);
           setHistory(readings);
           setIsConnected(true);
-          setStatusMessage('Terhubung ke Firebase Cloud...');
+          setStatusMessage(`Terhubung ke Firebase Cloud (${currentRole})`);
           lastPacketReceivedAtRef.current = Date.now();
         } else {
           setCurrentReading({
@@ -511,14 +500,14 @@ export default function App() {
           });
           setHistory([]);
           setIsConnected(true);
-          setStatusMessage('Terhubung ke Firebase Cloud...');
+          setStatusMessage(`Terhubung ke Firebase Cloud (${currentRole}) • Menunggu data ESP32...`);
         }
       },
       (err) => {
         console.error('Error membaca data Firestore:', err);
         setIsConnected(false);
         setIsEspOnline(false);
-        setStatusMessage('Gagal sinkronisasi Firestore. Periksa izin akun atau koneksi.');
+        setStatusMessage(`Gagal sinkronisasi Firestore: ${err?.message || 'Periksa koneksi internet.'}`);
       }
     );
 
@@ -610,13 +599,12 @@ export default function App() {
           source: 'cloud_hotspot'
         });
         setHistory([]);
-        if (currentUser) {
-          setIsConnected(true);
-          setStatusMessage('Beralih ke Firebase Cloud Firestore (Online)...');
-        } else {
-          setIsConnected(false);
-          setStatusMessage('Masuk dengan Akun Google untuk sinkronisasi Firebase Firestore online.');
-        }
+        setIsConnected(true);
+        setStatusMessage(
+          currentUser
+            ? `Beralih ke Firebase Cloud Firestore (${isUserOwner(currentUser) ? 'Admin PKM' : 'Anggota'})...`
+            : 'Beralih ke Firebase Cloud Firestore (Mode Tamu / Publik)...'
+        );
       } else {
         setIsConnected(false);
         setCurrentReading({
@@ -834,26 +822,26 @@ export default function App() {
 
         {/* Pojok Kanan: Ikon Navigasi & Status Akun */}
         <div className="flex items-center gap-2.5 sm:gap-3.5 shrink-0">
-          {/* Tombol Login / Profil Google (Diperlukan untuk otentikasi Firebase Firestore aman) */}
+          {/* Tombol Login / Profil Google (Login opsional untuk anggota, tamu tetap bisa lihat data) */}
           {currentUser ? (
             <button
               ref={userBtnRef}
               type="button"
               onClick={() => setUserMenuOpen((prev) => !prev)}
               aria-label="Profil Akun Google Terhubung"
-              title={`Akun: ${currentUser.email || 'Terautentikasi'} (Klik untuk menu)`}
+              title={`Akun: ${currentUser.email || 'Terautentikasi'}`}
               className="flex items-center gap-1.5 p-1 text-zinc-300 hover:text-white transition-colors cursor-pointer rounded-md hover:bg-white/5"
             >
               {currentUser.photoURL ? (
                 <img
                   src={currentUser.photoURL}
                   alt="Avatar"
-                  className="w-5 h-5 rounded-full border border-emerald-400/50 object-cover"
+                  className="w-5 h-5 rounded-full border border-white/20 object-cover"
                 />
               ) : (
-                <UserIcon className="w-4 h-4 text-emerald-400" />
+                <UserIcon className="w-4 h-4 text-cyan-400" />
               )}
-              <span className="hidden md:inline-block max-w-[110px] truncate text-[11px] font-mono text-zinc-400">
+              <span className="hidden sm:inline-block max-w-[120px] truncate text-[11px] font-mono text-zinc-300">
                 {currentUser.displayName || currentUser.email?.split('@')[0]}
               </span>
             </button>
@@ -868,11 +856,11 @@ export default function App() {
                 }
               }}
               aria-label="Masuk dengan Akun Google"
-              title="Masuk dengan Akun Google (Otentikasi Firebase)"
-              className="p-1 rounded-full hover:bg-white/10 active:scale-95 transition-all duration-300 cursor-pointer flex items-center justify-center group"
+              title="Masuk dengan Akun Google (Opsional: untuk alarm & fitur anggota)"
+              className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-white/5 hover:bg-white/10 active:scale-95 border border-white/10 hover:border-white/20 transition-all duration-300 cursor-pointer group"
             >
               <svg
-                className="w-5 h-5 transition-transform duration-300 group-hover:scale-110 drop-shadow-[0_0_6px_rgba(255,255,255,0.2)]"
+                className="w-4 h-4 transition-transform duration-300 group-hover:scale-110 drop-shadow-[0_0_6px_rgba(255,255,255,0.2)] shrink-0"
                 viewBox="0 0 24 24"
                 aria-hidden="true"
               >
@@ -893,6 +881,9 @@ export default function App() {
                   d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
                 />
               </svg>
+              <span className="text-[11px] font-sans text-zinc-300 group-hover:text-white hidden sm:inline">
+                Masuk
+              </span>
             </button>
           )}
 
@@ -1076,7 +1067,7 @@ export default function App() {
                   Sambungkan Alat ESP32
                 </h2>
                 <p className="text-[11px] text-zinc-400">
-                  Pilih cara menyambungkan sensor ke BioSense ITERA
+                  Pilih cara menyambungkan sensor ke bIoTeragas
                 </p>
               </div>
               <button
@@ -1273,24 +1264,8 @@ export default function App() {
               </button>
             </div>
 
-            {/* Status Hak Akses */}
-            <div className="space-y-1.5 text-[11px]">
-              <div className="flex items-center justify-between">
-                <span className="text-zinc-400">Hak Akses:</span>
-                {isUserOwner(currentUser) ? (
-                  <span className="text-[10px] font-mono text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 rounded font-medium">
-                    👑 Pemilik / Admin
-                  </span>
-                ) : (
-                  <span className="text-[10px] font-mono text-zinc-400 bg-white/5 border border-white/10 px-1.5 py-0.5 rounded">
-                    Pengamat
-                  </span>
-                )}
-              </div>
-            </div>
-
             {/* Tombol Keluar dari Akun */}
-            <div className="pt-2 border-t border-white/10">
+            <div className="pt-1">
               <button
                 type="button"
                 onClick={async () => {
@@ -1300,18 +1275,8 @@ export default function App() {
                   } catch (err) {
                     console.error('Logout error:', err);
                   }
-                  if (settings.activeMethod !== 'simulation') {
-                    setCurrentReading({
-                      id: 'awaiting',
-                      timestamp: '--:--:--',
-                      temperatureC: 0,
-                      pressureKpa: 0,
-                      source: settings.activeMethod
-                    });
-                    setHistory([]);
-                    setIsConnected(false);
-                    setIsEspOnline(false);
-                    setStatusMessage('Silakan masuk akun Google untuk sinkronisasi Firebase Firestore.');
+                  if (settings.activeMethod === 'cloud_hotspot') {
+                    setStatusMessage('Terhubung ke Firebase Cloud Firestore (Live)');
                   }
                 }}
                 className="w-full flex items-center justify-center gap-1.5 py-1.5 px-3 rounded text-xs font-medium bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 border border-rose-500/30 transition-all cursor-pointer"

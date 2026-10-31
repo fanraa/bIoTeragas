@@ -41,10 +41,10 @@ service cloud.firestore {
       );
     }
 
-    // Koleksi sensor_readings: pembacaan dan penulisan hanya untuk yang terautentikasi
+    // Koleksi sensor_readings: pembacaan terbuka untuk publik (tamu & pengguna), penulisan hanya terautentikasi
     match /sensor_readings/{readingId} {
-      // Akses BACA: hanya untuk pengguna / operator yang terautentikasi (tidak terbuka untuk publik)
-      allow read: if isSignedIn();
+      // Akses BACA: Terbuka untuk umum (publik/tamu dapat memantau suhu & tekanan tanpa login)
+      allow read: if true;
 
       // Akses TULIS: hanya untuk perangkat / operator yang terautentikasi dan data valid
       allow create: if isSignedIn()
@@ -65,8 +65,8 @@ service cloud.firestore {
 
     // Koleksi device_settings: Pengaturan perangkat jarak jauh (Remote Config)
     match /device_settings/{configId} {
-      // Perangkat ESP32 dan pengguna terautentikasi dapat membaca konfigurasi
-      allow read: if isSignedIn();
+      // Pembacaan konfigurasi & ambang batas terbuka agar tamu dapat melihat status normal/kritis
+      allow read: if true;
 
       // Akun pemilik atau perangkat ESP32 yang terautentikasi dapat memperbarui pengaturan
       allow write: if isOwnerOrDevice() && isValidId(configId);

@@ -265,7 +265,7 @@ export const ConnectionPage: React.FC<ConnectionPageProps> = ({
           <p className="text-xs text-zinc-400 mt-0.5 truncate">
             {isOwner
               ? 'Pilih metode koneksi atau klik ikon info untuk panduan'
-              : 'Status koneksi aktif & skema pin sensor ESP32'}
+              : 'Status koneksi aktif & preferensi alarm audio'}
           </p>
         </div>
       </div>
@@ -1056,7 +1056,7 @@ export const ConnectionPage: React.FC<ConnectionPageProps> = ({
           </section>
         </div>
       ) : (
-        /* Mode Pengamat: Bersih tanpa skema kabel/pinout */
+        /* Preferensi Pengguna */
         <div className="w-full space-y-3">
           <div className="bg-[#121212] border border-white/10 rounded-md p-4 flex items-center justify-between gap-3 shadow-lg shadow-black/20">
             <div className="flex items-center gap-3 min-w-0">
