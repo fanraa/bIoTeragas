@@ -75,8 +75,8 @@ export const PWAInstallCard: React.FC = () => {
                       <p>
                         <strong className="text-white">iPhone (Safari):</strong> Tekan tombol <strong>Bagikan (Share)</strong> di bilah bawah Safari &gt; pilih <strong>&quot;Tambah ke Layar Utama&quot;</strong>.
                       </p>
-                      <p className="text-emerald-400 pt-1 border-t border-white/10 text-[10px]">
-                        ✓ Membuka aplikasi secara mandiri (fullscreen) tanpa bilah URL browser layaknya aplikasi Android asli.
+                      <p className="text-emerald-400 pt-1 border-t border-white/10 text-[10px] leading-relaxed">
+                        ✓ <strong>Bebas Bilah Chrome:</strong> Buka aplikasi dari ikon di Layar Utama HP Anda untuk tampilan layar penuh bersih tanpa bar URL browser.
                       </p>
                     </div>
                   </div>
@@ -132,7 +132,7 @@ export const PWAInstallCard: React.FC = () => {
             <div className="flex items-center justify-between pb-2 border-b border-white/10">
               <div className="flex items-center gap-2.5">
                 <img
-                  src="https://cdn-icons-png.flaticon.com/128/188/188333.png"
+                  src="/logo.png"
                   alt="bIoTeragas"
                   className="w-6 h-6 object-contain"
                 />

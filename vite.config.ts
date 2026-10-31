@@ -11,7 +11,7 @@ export default defineConfig(() => {
       tailwindcss(),
       VitePWA({
         registerType: 'autoUpdate',
-        includeAssets: ['apple-touch-icon.png', 'pwa-192x192.png', 'pwa-512x512.png'],
+        includeAssets: ['apple-touch-icon.png', 'pwa-192x192.png', 'pwa-512x512.png', 'splash-bg.jpg', 'logo.png'],
         manifest: {
           id: '/',
           name: 'bIoTeragas — Monitoring Biogas Reaktor',
@@ -20,6 +20,7 @@ export default defineConfig(() => {
           theme_color: '#090B10',
           background_color: '#090B10',
           display: 'standalone',
+          display_override: ['standalone', 'minimal-ui', 'window-controls-overlay'],
           orientation: 'portrait-primary',
           start_url: '/',
           scope: '/',

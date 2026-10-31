@@ -2,11 +2,15 @@
 <html lang="id">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <title>bIoTeragas | Monitoring Biogas Reaktor — ITERA & SMAN 1 Jati Agung</title>
-    <link rel="icon" type="image/png" href="https://cdn-icons-png.flaticon.com/128/188/188333.png" />
+    <link rel="icon" type="image/png" href="/logo.png" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <link rel="manifest" href="/manifest.json" />
+
+    <!-- Preload Splash Image & Logo lokal agar instan muncul 0ms tanpa loading jeda -->
+    <link rel="preload" as="image" href="/splash-bg.jpg" fetchpriority="high" />
+    <link rel="preload" as="image" href="/logo.png" fetchpriority="high" />
     <script>
       // Tangkap event instalasi browser bawaan (Chrome/Edge/Android) sedini mungkin
       window.__pwaInstallPrompt = null;

@@ -57,12 +57,15 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onComplete }) => {
       style={{ backgroundColor: '#000000' }}
       aria-hidden="true"
     >
-      {/* BAGIAN ATAS: Gambar sesuai permintaan dengan gradasi ke hitam di bawahnya agar menyatu */}
+      {/* BAGIAN ATAS: Gambar lokal yang dioptimalkan & di-preload sehingga muncul instan tanpa jeda */}
       <div className="absolute top-0 inset-x-0 h-[48vh] overflow-hidden pointer-events-none">
         <img
-          src="https://images.pexels.com/photos/8067161/pexels-photo-8067161.jpeg"
+          src="/splash-bg.jpg"
           alt="Suasana Reaktor Biogas"
           className="w-full h-full object-cover object-center"
+          loading="eager"
+          fetchPriority="high"
+          decoding="sync"
           draggable={false}
         />
         {/* Lapisan gradasi halus: memudar dari foto ke warna hitam pekat */}
@@ -73,9 +76,12 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onComplete }) => {
       {/* TENGAH: Ikon Bersih dan Nama Aplikasi Berada Persis di Tengah Layar */}
       <div className="relative z-10 flex flex-col items-center justify-center text-center px-6">
         <img
-          src="https://cdn-icons-png.flaticon.com/128/188/188333.png"
+          src="/logo.png"
           alt="bIoTeragas Logo"
           className="w-20 h-20 sm:w-24 sm:h-24 object-contain"
+          loading="eager"
+          fetchPriority="high"
+          decoding="sync"
           draggable={false}
         />
 
