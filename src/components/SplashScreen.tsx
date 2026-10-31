@@ -27,6 +27,17 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onComplete }) => {
   useEffect(() => {
     if (!shouldShow) return;
 
+    // Kunci scroll, swipe pull-to-refresh, dan interaksi pada halaman selama splash screen aktif
+    const originalOverflow = document.body.style.overflow;
+    const originalTouchAction = document.body.style.touchAction;
+    const originalOverscroll = document.body.style.overscrollBehavior;
+
+    document.body.style.overflow = 'hidden';
+    document.body.style.touchAction = 'none';
+    document.body.style.overscrollBehavior = 'none';
+    document.documentElement.style.overflow = 'hidden';
+    document.documentElement.style.overscrollBehavior = 'none';
+
     // 1. Durasi tampil loading saat PWA dibuka di HP (1.8 detik)
     const exitTimer = setTimeout(() => {
       setStage('exiting');
@@ -38,9 +49,23 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onComplete }) => {
       if (onComplete) onComplete();
     }, 2400);
 
+    // Mencegah pull-to-refresh dan gesture scroll via touchmove
+    const preventDefaultTouch = (e: TouchEvent) => {
+      if (e.cancelable) {
+        e.preventDefault();
+      }
+    };
+    window.addEventListener('touchmove', preventDefaultTouch, { passive: false });
+
     return () => {
       clearTimeout(exitTimer);
       clearTimeout(doneTimer);
+      window.removeEventListener('touchmove', preventDefaultTouch);
+      document.body.style.overflow = originalOverflow;
+      document.body.style.touchAction = originalTouchAction;
+      document.body.style.overscrollBehavior = originalOverscroll;
+      document.documentElement.style.overflow = '';
+      document.documentElement.style.overscrollBehavior = '';
     };
   }, [shouldShow, onComplete]);
 
@@ -51,10 +76,15 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onComplete }) => {
 
   return (
     <div
-      className={`fixed inset-0 z-[99999] flex flex-col items-center justify-center bg-black select-none transition-opacity duration-600 ease-out overflow-hidden ${
+      className={`fixed inset-0 z-[999999] flex flex-col items-center justify-center bg-black select-none pointer-events-auto touch-none overscroll-none transition-opacity duration-600 ease-out overflow-hidden ${
         isExiting ? 'opacity-0 pointer-events-none' : 'opacity-100'
       }`}
-      style={{ backgroundColor: '#000000' }}
+      style={{ backgroundColor: '#000000', touchAction: 'none', overscrollBehavior: 'none' }}
+      onClick={(e) => e.stopPropagation()}
+      onTouchMove={(e) => {
+        if (e.cancelable) e.preventDefault();
+      }}
+      onContextMenu={(e) => e.preventDefault()}
       aria-hidden="true"
     >
       {/* BAGIAN ATAS: Gambar lokal yang dioptimalkan & di-preload sehingga muncul instan tanpa jeda */}

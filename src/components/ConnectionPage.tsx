@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Bluetooth,
   Wifi,
@@ -23,7 +23,9 @@ import {
   Save,
   Download,
   ShieldCheck,
-  Smartphone
+  Smartphone,
+  Info,
+  X
 } from 'lucide-react';
 import { User } from 'firebase/auth';
 import {
@@ -32,7 +34,7 @@ import {
   ThresholdConfig
 } from '../types/biogas';
 import { ARDUINO_SKETCHES, INFO_TOPICS } from '../data/esp32Guides';
-import { InfoButton } from './InfoPopover';
+import { InfoButton, FloatingAnchorBox } from './InfoPopover';
 import { PWAInstallCard } from './PWAInstallCard';
 import {
   subscribeDeviceSettings,
@@ -101,6 +103,10 @@ export const ConnectionPage: React.FC<ConnectionPageProps> = ({
   const [deviceConfig, setDeviceConfig] = useState<DeviceConfig | null>(null);
   const [isSavingInterval, setIsSavingInterval] = useState(false);
   const [intervalFeedback, setIntervalFeedback] = useState<string | null>(null);
+  const [showAlarmInfo, setShowAlarmInfo] = useState(false);
+  const alarmInfoBtnRef = useRef<HTMLButtonElement | null>(null);
+  const [showAlarmInfoGuest, setShowAlarmInfoGuest] = useState(false);
+  const alarmInfoBtnRefGuest = useRef<HTMLButtonElement | null>(null);
 
   // Berlangganan konfigurasi interval remote jika user adalah pemilik
   useEffect(() => {
@@ -1011,7 +1017,7 @@ export const ConnectionPage: React.FC<ConnectionPageProps> = ({
               </div>
             </div>
 
-            {/* 4. Pengaturan Audio Alarm Kritis */}
+            {/* 4. Pengaturan Audio Alarm Kritis (Tampilan Ringkas) */}
             <div className="bg-[#121212] border border-white/10 rounded-md p-4 flex items-center justify-between gap-3 shadow-lg shadow-black/20">
               <div className="flex items-center gap-3 min-w-0">
                 <div className="p-1.5 rounded bg-white/5 border border-white/5 shrink-0 flex items-center justify-center">
@@ -1032,14 +1038,55 @@ export const ConnectionPage: React.FC<ConnectionPageProps> = ({
                   )}
                 </div>
                 <div className="min-w-0">
-                  <h3 className="text-xs font-semibold text-white">
-                    Suara Alarm Peringatan Kritis
-                  </h3>
-                  <p className="text-[11px] text-zinc-400 mt-0.5">
-                    Membunyikan nada peringatan saat suhu atau tekanan melewati batas kritis.
-                  </p>
+                  <div className="flex items-center gap-1.5">
+                    <h3 className="text-xs font-semibold text-white truncate">
+                      Suara Alarm Peringatan Kritis
+                    </h3>
+                    <button
+                      ref={alarmInfoBtnRef}
+                      type="button"
+                      onClick={() => setShowAlarmInfo((prev) => !prev)}
+                      title="Informasi Alarm Audio Kritis"
+                      className={`transition-colors cursor-pointer p-0.5 shrink-0 ${
+                        showAlarmInfo ? 'text-white' : 'text-zinc-400 hover:text-white'
+                      }`}
+                    >
+                      <Info className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                 </div>
               </div>
+
+              {/* Popover Info Alarm Suara Kritis (Admin) */}
+              <FloatingAnchorBox
+                isOpen={showAlarmInfo}
+                onClose={() => setShowAlarmInfo(false)}
+                anchorEl={alarmInfoBtnRef.current}
+                maxWidth={275}
+              >
+                <div className="space-y-2 text-xs">
+                  <div className="flex items-center justify-between pb-1.5 border-b border-white/10 font-semibold text-white">
+                    <span className="text-xs">Alarm Peringatan Kritis</span>
+                    <button
+                      type="button"
+                      onClick={() => setShowAlarmInfo(false)}
+                      className="text-zinc-400 hover:text-white p-0.5 cursor-pointer"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                  <div className="space-y-1.5 text-[11px] text-zinc-300 leading-relaxed">
+                    <p>
+                      Membunyikan nada peringatan saat suhu atau tekanan melewati batas kritis reaktor.
+                    </p>
+                    <p className="text-amber-300/90 pt-1 border-t border-white/10 text-[10px]">
+                      • Suhu Kritis: ≥ {thresholds.tempCritical}°C<br />
+                      • Tekanan Kritis: ≥ {thresholds.pressureCritical} kPa
+                    </p>
+                  </div>
+                </div>
+              </FloatingAnchorBox>
+
               <div className="flex items-center gap-2 shrink-0">
                 {onTestAlarmSound && (
                   <button
@@ -1070,7 +1117,7 @@ export const ConnectionPage: React.FC<ConnectionPageProps> = ({
           </section>
         </div>
       ) : (
-        /* Preferensi Pengguna */
+        /* Preferensi Pengguna Non-Admin */
         <div className="w-full space-y-3">
           <div className="bg-[#121212] border border-white/10 rounded-md p-4 flex items-center justify-between gap-3 shadow-lg shadow-black/20">
             <div className="flex items-center gap-3 min-w-0">
@@ -1092,14 +1139,55 @@ export const ConnectionPage: React.FC<ConnectionPageProps> = ({
                 )}
               </div>
               <div className="min-w-0">
-                <h3 className="text-xs font-semibold text-white">
-                  Suara Alarm Peringatan Kritis
-                </h3>
-                <p className="text-[11px] text-zinc-400 mt-0.5">
-                  Membunyikan nada peringatan saat suhu atau tekanan melewati batas kritis reaktor.
-                </p>
+                <div className="flex items-center gap-1.5">
+                  <h3 className="text-xs font-semibold text-white truncate">
+                    Suara Alarm Peringatan Kritis
+                  </h3>
+                  <button
+                    ref={alarmInfoBtnRefGuest}
+                    type="button"
+                    onClick={() => setShowAlarmInfoGuest((prev) => !prev)}
+                    title="Informasi Alarm Audio Kritis"
+                    className={`transition-colors cursor-pointer p-0.5 shrink-0 ${
+                      showAlarmInfoGuest ? 'text-white' : 'text-zinc-400 hover:text-white'
+                    }`}
+                  >
+                    <Info className="w-3.5 h-3.5" />
+                  </button>
+                </div>
               </div>
             </div>
+
+            {/* Popover Info Alarm Suara Kritis (Guest) */}
+            <FloatingAnchorBox
+              isOpen={showAlarmInfoGuest}
+              onClose={() => setShowAlarmInfoGuest(false)}
+              anchorEl={alarmInfoBtnRefGuest.current}
+              maxWidth={275}
+            >
+              <div className="space-y-2 text-xs">
+                <div className="flex items-center justify-between pb-1.5 border-b border-white/10 font-semibold text-white">
+                  <span className="text-xs">Alarm Peringatan Kritis</span>
+                  <button
+                    type="button"
+                    onClick={() => setShowAlarmInfoGuest(false)}
+                    className="text-zinc-400 hover:text-white p-0.5 cursor-pointer"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+                <div className="space-y-1.5 text-[11px] text-zinc-300 leading-relaxed">
+                  <p>
+                    Membunyikan nada peringatan saat suhu atau tekanan melewati batas kritis reaktor.
+                  </p>
+                  <p className="text-amber-300/90 pt-1 border-t border-white/10 text-[10px]">
+                    • Suhu Kritis: ≥ {thresholds.tempCritical}°C<br />
+                    • Tekanan Kritis: ≥ {thresholds.pressureCritical} kPa
+                  </p>
+                </div>
+              </div>
+            </FloatingAnchorBox>
+
             <div className="flex items-center gap-2 shrink-0">
               {onTestAlarmSound && (
                 <button

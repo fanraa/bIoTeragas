@@ -1,12 +1,14 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { Check, Info, X, Download, Smartphone } from 'lucide-react';
 import { usePWAInstall } from '../hooks/usePWAInstall';
+import { FloatingAnchorBox } from './InfoPopover';
 
 export const PWAInstallCard: React.FC = () => {
   const { isInstallable, isInstalled, isIOS, install } = usePWAInstall();
   const [showGuide, setShowGuide] = useState(false);
   const [showInfoPopover, setShowInfoPopover] = useState(false);
   const [installFeedback, setInstallFeedback] = useState<string | null>(null);
+  const infoBtnRef = useRef<HTMLButtonElement | null>(null);
 
   const handleInstallClick = async () => {
     setInstallFeedback(null);
@@ -44,50 +46,58 @@ export const PWAInstallCard: React.FC = () => {
           </div>
           <div className="min-w-0">
             <div className="flex items-center gap-1.5">
-              <h3 className="text-xs font-semibold text-white">
+              <h3 className="text-xs font-semibold text-white truncate">
                 Pasang Aplikasi ke Layar Utama
               </h3>
-              <div className="relative inline-flex">
-                <button
-                  type="button"
-                  onClick={() => setShowInfoPopover((prev) => !prev)}
-                  title="Informasi Pemasangan Aplikasi di HP & Laptop"
-                  className="text-zinc-400 hover:text-white transition-colors cursor-pointer p-0.5"
-                >
-                  <Info className="w-3.5 h-3.5" />
-                </button>
-                {showInfoPopover && (
-                  <div className="absolute left-0 bottom-full mb-2 w-72 sm:w-80 p-3 bg-zinc-900 border border-white/15 rounded-md shadow-2xl text-[11px] text-zinc-300 z-50 leading-relaxed">
-                    <div className="flex items-center justify-between mb-2 pb-1.5 border-b border-white/10 font-semibold text-white">
-                      <span>Cara Pasang di HP (PWA)</span>
-                      <button
-                        type="button"
-                        onClick={() => setShowInfoPopover(false)}
-                        className="text-zinc-400 hover:text-white p-0.5 cursor-pointer"
-                      >
-                        <X className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                    <div className="space-y-1.5 text-[11px] text-zinc-300">
-                      <p>
-                        <strong className="text-white">Android:</strong> Cukup klik tombol <em>Pasang</em>, lalu pilih <strong>Instal</strong> pada dialog konfirmasi yang muncul di layar.
-                      </p>
-                      <p>
-                        <strong className="text-white">iPhone (Safari):</strong> Tekan tombol <strong>Bagikan (Share)</strong> di bilah bawah Safari &gt; pilih <strong>&quot;Tambah ke Layar Utama&quot;</strong>.
-                      </p>
-                      <p className="text-emerald-400 pt-1 border-t border-white/10 text-[10px] leading-relaxed">
-                        ✓ <strong>Bebas Bilah Chrome:</strong> Buka aplikasi dari ikon di Layar Utama HP Anda untuk tampilan layar penuh bersih tanpa bar URL browser.
-                      </p>
-                    </div>
-                  </div>
-                )}
-              </div>
+              <button
+                ref={infoBtnRef}
+                type="button"
+                onClick={() => setShowInfoPopover((prev) => !prev)}
+                title="Informasi Pemasangan Aplikasi di HP & Laptop"
+                className={`transition-colors cursor-pointer p-0.5 shrink-0 ${
+                  showInfoPopover ? 'text-white' : 'text-zinc-400 hover:text-white'
+                }`}
+              >
+                <Info className="w-3.5 h-3.5" />
+              </button>
             </div>
-            <p className="text-[11px] text-zinc-400 mt-0.5">
-              Buka aplikasi layar penuh tanpa bilah browser di HP Android &amp; iPhone.
-            </p>
           </div>
         </div>
+
+        {/* Floating Anchor Box Info Popover: Kotak kecil, tidak nabrak, tidak kepotong layar */}
+        <FloatingAnchorBox
+          isOpen={showInfoPopover}
+          onClose={() => setShowInfoPopover(false)}
+          anchorEl={infoBtnRef.current}
+          maxWidth={280}
+        >
+          <div className="space-y-2 text-xs">
+            <div className="flex items-center justify-between pb-1.5 border-b border-white/10 font-semibold text-white">
+              <span className="text-xs">Pasang ke Layar Utama</span>
+              <button
+                type="button"
+                onClick={() => setShowInfoPopover(false)}
+                className="text-zinc-400 hover:text-white p-0.5 cursor-pointer"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+            <div className="space-y-1.5 text-[11px] text-zinc-300 leading-relaxed">
+              <p className="text-zinc-300">
+                Buka aplikasi layar penuh tanpa bilah browser di HP Android &amp; iPhone.
+              </p>
+              <p>
+                <strong className="text-white">Android:</strong> Klik tombol <em>Pasang</em> lalu pilih <strong>Instal</strong>.
+              </p>
+              <p>
+                <strong className="text-white">iPhone:</strong> Tekan tombol <strong>Share</strong> di Safari &gt; <strong>Tambah ke Layar Utama</strong>.
+              </p>
+              <p className="text-emerald-400 pt-1 border-t border-white/10 text-[10px]">
+                ✓ Bebas bilah Chrome saat dibuka dari ikon Layar Utama.
+              </p>
+            </div>
+          </div>
+        </FloatingAnchorBox>
 
         <div className="shrink-0">
           {isInstalled ? (

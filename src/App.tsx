@@ -1416,18 +1416,18 @@ export default function App() {
         </FloatingAnchorBox>
       )}
 
-      {/* Toast Notifikasi Minimalis: Geser sekali lagi untuk keluar */}
+      {/* Toast Notifikasi Minimalis: Geser sekali lagi untuk keluar (Kotak, Sebaris, Pas di HP) */}
       <div
-        className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-[99990] transition-all duration-300 ease-out transform ${
+        className={`fixed bottom-5 left-1/2 -translate-x-1/2 z-[99990] transition-all duration-200 ease-out transform pointer-events-none ${
           exitToastVisible
             ? 'opacity-100 translate-y-0 scale-100'
-            : 'opacity-0 translate-y-3 scale-95 pointer-events-none'
+            : 'opacity-0 translate-y-2 scale-95'
         }`}
         aria-live="polite"
       >
-        <div className="bg-[#121214]/95 border border-white/15 text-zinc-100 text-xs px-4 py-2 rounded-full shadow-2xl backdrop-blur-md flex items-center gap-2 select-none">
-          <span className="text-zinc-400 text-xs">↩</span>
-          <span className="font-medium tracking-wide">Geser sekali lagi untuk keluar</span>
+        <div className="bg-[#121214]/95 border border-white/20 text-zinc-100 text-[11px] px-3 py-1.5 rounded shadow-xl backdrop-blur-md inline-flex items-center gap-1.5 select-none whitespace-nowrap">
+          <span className="text-zinc-400 text-[10px]">↩</span>
+          <span className="font-medium tracking-normal text-white">Geser sekali lagi untuk keluar</span>
         </div>
       </div>
     </div>
