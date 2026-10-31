@@ -27,10 +27,14 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onComplete }) => {
   useEffect(() => {
     if (!shouldShow) return;
 
-    // Kunci scroll, swipe pull-to-refresh, dan interaksi pada halaman selama splash screen aktif
-    const originalOverflow = document.body.style.overflow;
-    const originalTouchAction = document.body.style.touchAction;
-    const originalOverscroll = document.body.style.overscrollBehavior;
+    // Kunci scroll dan interaksi hanya saat splash screen aktif di awal
+    const restoreStyles = () => {
+      document.body.style.overflow = '';
+      document.body.style.touchAction = '';
+      document.body.style.overscrollBehavior = '';
+      document.documentElement.style.overflow = '';
+      document.documentElement.style.overscrollBehavior = '';
+    };
 
     document.body.style.overflow = 'hidden';
     document.body.style.touchAction = 'none';
@@ -41,31 +45,21 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onComplete }) => {
     // 1. Durasi tampil loading saat PWA dibuka di HP (1.8 detik)
     const exitTimer = setTimeout(() => {
       setStage('exiting');
+      // Segera pulihkan scrolling dan refresh saat transisi fade-out dimulai
+      restoreStyles();
     }, 1800);
 
-    // 2. Unmount setelah transisi fade-out selesai
+    // 2. Selesai setelah transisi fade-out tuntas
     const doneTimer = setTimeout(() => {
       setStage('done');
+      restoreStyles();
       if (onComplete) onComplete();
     }, 2400);
-
-    // Mencegah pull-to-refresh dan gesture scroll via touchmove
-    const preventDefaultTouch = (e: TouchEvent) => {
-      if (e.cancelable) {
-        e.preventDefault();
-      }
-    };
-    window.addEventListener('touchmove', preventDefaultTouch, { passive: false });
 
     return () => {
       clearTimeout(exitTimer);
       clearTimeout(doneTimer);
-      window.removeEventListener('touchmove', preventDefaultTouch);
-      document.body.style.overflow = originalOverflow;
-      document.body.style.touchAction = originalTouchAction;
-      document.body.style.overscrollBehavior = originalOverscroll;
-      document.documentElement.style.overflow = '';
-      document.documentElement.style.overscrollBehavior = '';
+      restoreStyles();
     };
   }, [shouldShow, onComplete]);
 

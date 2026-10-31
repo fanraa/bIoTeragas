@@ -937,7 +937,7 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#050505] text-zinc-100 relative overflow-hidden">
+    <div className="min-h-screen flex flex-col bg-[#050505] text-zinc-100 relative overflow-x-hidden">
       {/* Splash Screen Eksklusif saat Aplikasi Dibuka */}
       <SplashScreen />
 

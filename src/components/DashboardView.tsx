@@ -703,7 +703,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         </div>
 
         {/* Tabel Riwayat Sensor: Seimbang, Rata Tengah, Satuan di Bawah Teks & Tinggi Paten Sejak Awal */}
-        <div className="overflow-x-auto w-full h-[275px] overflow-y-auto">
+        <div className="overflow-x-auto w-full h-[275px] overflow-y-auto overscroll-contain touch-pan-y">
           <table className="w-full border-collapse text-xs font-mono tabular-nums">
             <thead className="sticky top-0 z-10 bg-[#0c0c0c]/95 backdrop-blur-xs">
               <tr className="border-b border-white/10 text-zinc-300 font-sans text-[11px]">
