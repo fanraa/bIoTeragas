@@ -1,21 +1,33 @@
 import React, { useState } from 'react';
-import { Check, Info, X } from 'lucide-react';
+import { Check, Info, X, Download, Smartphone } from 'lucide-react';
 import { usePWAInstall } from '../hooks/usePWAInstall';
 
 export const PWAInstallCard: React.FC = () => {
   const { isInstallable, isInstalled, isIOS, install } = usePWAInstall();
   const [showGuide, setShowGuide] = useState(false);
   const [showInfoPopover, setShowInfoPopover] = useState(false);
+  const [installFeedback, setInstallFeedback] = useState<string | null>(null);
 
   const handleInstallClick = async () => {
-    if (isInstallable) {
-      const success = await install();
-      if (!success) {
-        setShowGuide(true);
-      }
-    } else {
-      setShowGuide(true);
+    setInstallFeedback(null);
+
+    // 1. Langsung panggil prompt instalasi bawaan browser (Chrome Android / Desktop / Edge)
+    const result = await install();
+
+    if (result === 'accepted') {
+      setInstallFeedback('Aplikasi berhasil dipasang ke Layar Utama!');
+      setTimeout(() => setInstallFeedback(null), 3500);
+      return;
     }
+
+    if (result === 'dismissed') {
+      // Pengguna menekan tombol Batal di popup bawaan browser
+      return;
+    }
+
+    // 2. Jika browser tidak mendukung trigger programmatic (seperti Safari di iPhone)
+    // atau jika dibuka di dalam webview/in-app browser (seperti link dari WA/Instagram)
+    setShowGuide(true);
   };
 
   return (
@@ -51,20 +63,20 @@ export const PWAInstallCard: React.FC = () => {
                       <button
                         type="button"
                         onClick={() => setShowInfoPopover(false)}
-                        className="text-zinc-400 hover:text-white p-0.5"
+                        className="text-zinc-400 hover:text-white p-0.5 cursor-pointer"
                       >
                         <X className="w-3.5 h-3.5" />
                       </button>
                     </div>
                     <div className="space-y-1.5 text-[11px] text-zinc-300">
                       <p>
-                        <strong className="text-white">Android (Chrome):</strong> Klik tombol <em>Pasang</em>. Jika browser tidak memunculkan konfirmasi otomatis, buka menu titik tiga <strong>(⋮)</strong> di pojok kanan atas Chrome &gt; pilih <strong>&quot;Tambahkan ke Layar Utama&quot;</strong> atau <strong>&quot;Instal Aplikasi&quot;</strong>.
+                        <strong className="text-white">Android:</strong> Cukup klik tombol <em>Pasang</em>, lalu pilih <strong>Instal</strong> pada dialog konfirmasi yang muncul di layar.
                       </p>
                       <p>
-                        <strong className="text-white">iPhone (Safari):</strong> Tekan tombol <strong>Bagikan (Share)</strong> di bilah bawah Safari &gt; geser dan pilih <strong>&quot;Tambah ke Layar Utama&quot;</strong>.
+                        <strong className="text-white">iPhone (Safari):</strong> Tekan tombol <strong>Bagikan (Share)</strong> di bilah bawah Safari &gt; pilih <strong>&quot;Tambah ke Layar Utama&quot;</strong>.
                       </p>
                       <p className="text-emerald-400 pt-1 border-t border-white/10 text-[10px]">
-                        ✓ Aplikasi terbuka layar penuh (fullscreen) tanpa bilah URL browser layaknya aplikasi Android asli.
+                        ✓ Membuka aplikasi secara mandiri (fullscreen) tanpa bilah URL browser layaknya aplikasi Android asli.
                       </p>
                     </div>
                   </div>
@@ -101,19 +113,34 @@ export const PWAInstallCard: React.FC = () => {
         </div>
       </div>
 
-      {/* Modal Panduan Pemasangan Manual (Android Chrome / iPhone Safari) */}
+      {installFeedback && (
+        <div className="text-[11px] font-mono text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 rounded px-2.5 py-1.5">
+          {installFeedback}
+        </div>
+      )}
+
+      {/* Dialog Konfirmasi Instalasi (Jika perangkat memerlukan konfirmasi manual seperti di iOS Safari) */}
       {showGuide && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-xs p-4">
-          <div className="w-full max-w-sm rounded-lg bg-[#141721] border border-white/20 p-5 shadow-2xl text-zinc-200 space-y-3.5">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-xs p-4"
+          onClick={() => setShowGuide(false)}
+        >
+          <div
+            className="w-full max-w-sm rounded-lg bg-[#141721] border border-white/20 p-5 shadow-2xl text-zinc-200 space-y-4"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="flex items-center justify-between pb-2 border-b border-white/10">
-              <h4 className="text-sm font-semibold text-white flex items-center gap-2">
+              <div className="flex items-center gap-2.5">
                 <img
-                  src="https://cdn-icons-png.flaticon.com/128/12603/12603181.png"
-                  alt=""
-                  className="w-4 h-4 object-contain brightness-0 invert"
+                  src="https://cdn-icons-png.flaticon.com/128/188/188333.png"
+                  alt="bIoTeragas"
+                  className="w-6 h-6 object-contain"
                 />
-                <span>Pasang bIoTeragas ke HP</span>
-              </h4>
+                <div>
+                  <h4 className="text-sm font-semibold text-white">Instal bIoTeragas</h4>
+                  <p className="text-[10px] text-zinc-400 font-mono">Monitoring Biogas Reaktor</p>
+                </div>
+              </div>
               <button
                 type="button"
                 onClick={() => setShowGuide(false)}
@@ -124,43 +151,58 @@ export const PWAInstallCard: React.FC = () => {
             </div>
 
             {isIOS ? (
-              <div className="space-y-2 text-xs leading-relaxed text-zinc-300">
-                <p className="font-medium text-white">Panduan Safari iPhone / iPad:</p>
-                <ol className="list-decimal list-inside space-y-1.5 text-zinc-400">
-                  <li>
-                    Tekan tombol <strong className="text-zinc-200">Bagikan (Share)</strong> di bilah bawah Safari.
-                  </li>
-                  <li>
-                    Geser ke bawah lalu pilih menu <strong className="text-cyan-300">Tambah ke Layar Utama (Add to Home Screen)</strong>.
-                  </li>
-                  <li>
-                    Tekan <strong className="text-white">Tambah</strong> di pojok kanan atas.
-                  </li>
-                </ol>
+              <div className="space-y-2.5 text-xs leading-relaxed text-zinc-300">
+                <p className="text-[11px] text-zinc-400">
+                  Untuk memasang di iPhone / iPad (Safari):
+                </p>
+                <div className="bg-zinc-900/80 border border-white/10 rounded p-3 space-y-2 text-[11px]">
+                  <div className="flex items-start gap-2">
+                    <span className="w-4 h-4 rounded-full bg-cyan-500/20 text-cyan-300 flex items-center justify-center font-bold shrink-0 text-[10px]">1</span>
+                    <span>Tekan tombol <strong>Bagikan (Share)</strong> di bilah navigasi bawah Safari.</span>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <span className="w-4 h-4 rounded-full bg-cyan-500/20 text-cyan-300 flex items-center justify-center font-bold shrink-0 text-[10px]">2</span>
+                    <span>Pilih menu <strong>&quot;Tambah ke Layar Utama&quot;</strong> (Add to Home Screen).</span>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <span className="w-4 h-4 rounded-full bg-cyan-500/20 text-cyan-300 flex items-center justify-center font-bold shrink-0 text-[10px]">3</span>
+                    <span>Tekan <strong>Tambah</strong> di pojok kanan atas.</span>
+                  </div>
+                </div>
               </div>
             ) : (
-              <div className="space-y-2 text-xs leading-relaxed text-zinc-300">
-                <p className="font-medium text-white">Panduan Chrome Android / Browser:</p>
-                <ol className="list-decimal list-inside space-y-1.5 text-zinc-400">
-                  <li>
-                    Buka menu titik tiga <strong className="text-zinc-200">(⋮)</strong> di pojok kanan atas Chrome.
-                  </li>
-                  <li>
-                    Pilih menu <strong className="text-cyan-300">Tambahkan ke Layar Utama</strong> atau <strong className="text-cyan-300">Instal Aplikasi</strong>.
-                  </li>
-                  <li>
-                    Tekan <strong className="text-white">Instal</strong> untuk memasang icon di layar utama HP.
-                  </li>
-                </ol>
+              <div className="space-y-3 text-xs leading-relaxed text-zinc-300">
+                <p className="text-[11px] text-zinc-400">
+                  Pasang bIoTeragas langsung ke layar HP Anda agar dapat dibuka layar penuh tanpa bilah browser.
+                </p>
+                <div className="bg-zinc-900/80 border border-white/10 rounded p-3 space-y-1.5 text-[11px]">
+                  <p className="text-zinc-300">
+                    Jika Anda membuka via browser Chrome di HP, Anda dapat langsung mengklik tombol di bawah untuk memasang aplikasi.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const res = await install();
+                    if (res === 'accepted') {
+                      setShowGuide(false);
+                      setInstallFeedback('Aplikasi berhasil dipasang!');
+                    }
+                  }}
+                  className="w-full py-2.5 text-xs font-semibold rounded bg-cyan-500 text-black hover:bg-cyan-400 transition-colors cursor-pointer flex items-center justify-center gap-2 shadow-lg shadow-cyan-500/20"
+                >
+                  <Download className="w-4 h-4" />
+                  <span>Pasang Sekarang ke HP</span>
+                </button>
               </div>
             )}
 
             <button
               type="button"
               onClick={() => setShowGuide(false)}
-              className="w-full py-2 text-xs font-medium rounded bg-white text-black hover:bg-zinc-200 transition-colors cursor-pointer mt-2"
+              className="w-full py-2 text-xs font-medium rounded bg-zinc-800 text-zinc-300 hover:bg-zinc-700 transition-colors cursor-pointer"
             >
-              Mengerti
+              Tutup
             </button>
           </div>
         </div>
