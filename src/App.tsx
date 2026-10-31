@@ -18,6 +18,7 @@ import {
 } from './types/biogas';
 import { DashboardView } from './components/DashboardView';
 import { ConnectionPage } from './components/ConnectionPage';
+import { SplashScreen } from './components/SplashScreen';
 import { InfoButton, FloatingAnchorBox } from './components/InfoPopover';
 import {
   DynamicSkylineBackdrop,
@@ -872,6 +873,9 @@ export default function App() {
 
   return (
     <div className="min-h-screen flex flex-col bg-[#050505] text-zinc-100 relative overflow-hidden">
+      {/* Splash Screen Eksklusif saat Aplikasi Dibuka */}
+      <SplashScreen />
+
       {/* Background Gambar Latar Langit Dinamis */}
       <DynamicSkylineBackdrop currentMode={skyMode} />
 

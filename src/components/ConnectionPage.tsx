@@ -1014,11 +1014,21 @@ export const ConnectionPage: React.FC<ConnectionPageProps> = ({
             {/* 4. Pengaturan Audio Alarm Kritis */}
             <div className="bg-[#121212] border border-white/10 rounded-md p-4 flex items-center justify-between gap-3 shadow-lg shadow-black/20">
               <div className="flex items-center gap-3 min-w-0">
-                <div className="p-2 rounded bg-white/5 border border-white/5 shrink-0">
+                <div className="p-1.5 rounded bg-white/5 border border-white/5 shrink-0 flex items-center justify-center">
                   {alarmSoundEnabled ? (
-                    <Volume2 className="w-4 h-4 text-white" />
+                    <img
+                      src="https://cdn-icons-png.flaticon.com/128/727/727269.png"
+                      alt="Suara Aktif"
+                      className="w-5 h-5 object-contain brightness-0 invert"
+                      draggable={false}
+                    />
                   ) : (
-                    <VolumeX className="w-4 h-4 text-zinc-500" />
+                    <img
+                      src="https://cdn-icons-png.flaticon.com/128/727/727240.png"
+                      alt="Suara Mati"
+                      className="w-5 h-5 object-contain brightness-0 invert opacity-50"
+                      draggable={false}
+                    />
                   )}
                 </div>
                 <div className="min-w-0">
@@ -1064,11 +1074,21 @@ export const ConnectionPage: React.FC<ConnectionPageProps> = ({
         <div className="w-full space-y-3">
           <div className="bg-[#121212] border border-white/10 rounded-md p-4 flex items-center justify-between gap-3 shadow-lg shadow-black/20">
             <div className="flex items-center gap-3 min-w-0">
-              <div className="p-2 rounded bg-white/5 border border-white/5 shrink-0">
+              <div className="p-1.5 rounded bg-white/5 border border-white/5 shrink-0 flex items-center justify-center">
                 {alarmSoundEnabled ? (
-                  <Volume2 className="w-4 h-4 text-white" />
+                  <img
+                    src="https://cdn-icons-png.flaticon.com/128/727/727269.png"
+                    alt="Suara Aktif"
+                    className="w-5 h-5 object-contain brightness-0 invert"
+                    draggable={false}
+                  />
                 ) : (
-                  <VolumeX className="w-4 h-4 text-zinc-500" />
+                  <img
+                    src="https://cdn-icons-png.flaticon.com/128/727/727240.png"
+                    alt="Suara Mati"
+                    className="w-5 h-5 object-contain brightness-0 invert opacity-50"
+                    draggable={false}
+                  />
                 )}
               </div>
               <div className="min-w-0">
