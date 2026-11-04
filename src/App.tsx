@@ -273,7 +273,8 @@ export default function App() {
         timestamp: formatTimeNow(),
         temperatureC: 35.4,
         pressureKpa: 121.8,
-        source: 'simulation'
+        source: 'simulation',
+        epochMs: Date.now()
       };
     }
     return {
@@ -293,7 +294,8 @@ export default function App() {
           timestamp: formatTimeNow(),
           temperatureC: 35.4,
           pressureKpa: 121.8,
-          source: 'simulation'
+          source: 'simulation',
+          epochMs: Date.now()
         }
       ];
     }
@@ -473,7 +475,8 @@ export default function App() {
         timestamp: formatTimeNow(),
         temperatureC: cleanTemp,
         pressureKpa: cleanPres,
-        source
+        source,
+        epochMs: Date.now()
       };
       setCurrentReading(newEntry);
       setHistory((prev) => [newEntry, ...prev.slice(0, 58)]);
@@ -672,35 +675,50 @@ export default function App() {
   }, [settings.activeMethod]);
 
   // 2. Mode Simulasi: HANYA berjalan jika mode 'simulation' aktif
-  // Menghilangkan data dummy dari live mode secara ketat
+  // Menghasilkan fluktuasi acak naik-turun & lonjakan mendadak agar grafik mudah diuji
   useEffect(() => {
     if (settings.activeMethod !== 'simulation') return;
     if (!simAutoWalk) return;
 
     const interval = window.setInterval(() => {
       setCurrentReading((prev) => {
-        const deltaT = (Math.random() - 0.49) * 0.28;
-        let nextT = (prev.temperatureC > 0 ? prev.temperatureC : 35.0) + deltaT;
-        if (nextT < 34.0) nextT = 34.0 + Math.random() * 0.4;
-        if (nextT > 38.0) nextT = 38.0 - Math.random() * 0.4;
+        const baseT = prev.temperatureC > 0 ? prev.temperatureC : 35.0;
+        const baseP = prev.pressureKpa > 0 ? prev.pressureKpa : 122.0;
 
-        const deltaP = (Math.random() - 0.48) * 0.65;
-        let nextP = (prev.pressureKpa > 0 ? prev.pressureKpa : 121.0) + deltaP;
-        if (nextP < 118.0) nextP = 118.0 + Math.random() * 0.6;
-        if (nextP > 127.0) nextP = 127.0 - Math.random() * 0.6;
+        // Peluang ~35% lonjakan/penurunan mendadak, sisanya fluktuasi dinamis
+        const isSuddenJumpT = Math.random() < 0.35;
+        const stepT = isSuddenJumpT
+          ? (Math.random() < 0.5 ? -1 : 1) * (1.4 + Math.random() * 2.6)
+          : (Math.random() - 0.48) * 1.6;
+
+        let nextT = baseT + stepT;
+        // Pantulkan kembali jika terlalu jauh agar tetap realistis (28.5°C – 43.5°C)
+        if (nextT < 28.5) nextT = 29.5 + Math.random() * 2.0;
+        if (nextT > 43.5) nextT = 41.5 - Math.random() * 2.0;
+
+        const isSuddenJumpP = Math.random() < 0.35;
+        const stepP = isSuddenJumpP
+          ? (Math.random() < 0.5 ? -1 : 1) * (3.5 + Math.random() * 7.5)
+          : (Math.random() - 0.48) * 4.2;
+
+        let nextP = baseP + stepP;
+        // Pantulkan kembali dalam rentang pengujian reaktor (106.0 – 151.0 kPa)
+        if (nextP < 106.0) nextP = 109.0 + Math.random() * 4.0;
+        if (nextP > 151.0) nextP = 146.0 - Math.random() * 4.0;
 
         const entry: SensorReading = {
           id: `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
           timestamp: formatTimeNow(),
           temperatureC: Number(nextT.toFixed(1)),
           pressureKpa: Number(nextP.toFixed(1)),
-          source: 'simulation'
+          source: 'simulation',
+          epochMs: Date.now()
         };
 
         setHistory((h) => [entry, ...h.slice(0, 58)]);
         return entry;
       });
-    }, 2500);
+    }, 2000);
 
     return () => window.clearInterval(interval);
   }, [settings.activeMethod, simAutoWalk]);
@@ -710,14 +728,20 @@ export default function App() {
       disconnectHardware();
       if (partial.activeMethod === 'simulation') {
         setIsConnected(true);
+        setSimAutoWalk(true);
         setStatusMessage('Beralih ke Mode Simulasi.');
-        setCurrentReading({
-          id: 'sim-now',
+        const initEntry: SensorReading = {
+          id: `sim-${Date.now()}`,
           timestamp: formatTimeNow(),
-          temperatureC: 35.4,
-          pressureKpa: 121.8,
-          source: 'simulation'
-        });
+          temperatureC: Number((33.0 + Math.random() * 4.5).toFixed(1)),
+          pressureKpa: Number((116.0 + Math.random() * 14.0).toFixed(1)),
+          source: 'simulation',
+          epochMs: Date.now()
+        };
+        setCurrentReading(initEntry);
+        setHistory((prev) =>
+          prev.length > 0 && prev[0]?.source === 'simulation' ? prev : [initEntry]
+        );
       } else if (partial.activeMethod === 'cloud_hotspot') {
         setCurrentReading({
           id: 'awaiting',

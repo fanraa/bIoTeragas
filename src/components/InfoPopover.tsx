@@ -118,7 +118,7 @@ export const FloatingAnchorBox: React.FC<FloatingAnchorBoxProps> = ({
       ref={popoverRef}
       role="dialog"
       aria-modal="false"
-      className="fixed z-[9999] bg-[#121212] border border-white/20 rounded-md shadow-2xl shadow-black/95 p-3 text-left animate-in fade-in zoom-in-95 duration-100 max-h-[85vh] overflow-y-auto"
+      className="fixed z-[9999] bg-[#121212] border border-white/20 rounded-md shadow-2xl shadow-black/95 p-2.5 text-left animate-in fade-in zoom-in-95 duration-100"
       style={{
         top: coords.top,
         left: coords.left,
@@ -127,7 +127,7 @@ export const FloatingAnchorBox: React.FC<FloatingAnchorBoxProps> = ({
       }}
       onClick={(e) => e.stopPropagation()}
     >
-      {/* Ujung Lancip (Arrow Pointer) yang menunjuk tepat ke ikon */}
+      {/* Ujung Lancip (Arrow Pointer) yang menunjuk tepat ke tombol/ikon */}
       {coords.placement === 'bottom' ? (
         <div
           aria-hidden="true"
@@ -142,7 +142,9 @@ export const FloatingAnchorBox: React.FC<FloatingAnchorBoxProps> = ({
         />
       )}
 
-      {children}
+      <div className="relative z-10 max-h-[75vh] overflow-y-auto">
+        {children}
+      </div>
     </div>,
     document.body
   );

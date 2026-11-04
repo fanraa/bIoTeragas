@@ -11,7 +11,7 @@ export default defineConfig(() => {
       tailwindcss(),
       VitePWA({
         registerType: 'autoUpdate',
-        includeAssets: ['apple-touch-icon.png', 'pwa-192x192.png', 'pwa-512x512.png', 'splash-bg.jpg', 'logo.png'],
+        includeAssets: ['apple-touch-icon.png', 'pwa-192x192.png', 'pwa-512x512.png', 'splash-bg.jpg', 'logo.png', 'logo-itera.png', 'logo-fisika-itera.png'],
         manifest: {
           id: '/',
           name: 'bIoTeragas — Monitoring Biogas Reaktor',
